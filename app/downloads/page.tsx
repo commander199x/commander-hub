@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { Radio, Map, Swords, Wrench, Download, ArrowUpRight } from "lucide-react";
-import { C, DISCORD_URL } from "@/lib/theme";
+import { C, MODS_DISCORD_URL } from "@/lib/theme";
 import { maps } from "@/lib/maps-data";
 import MapSearch from "@/components/MapSearch";
 import Pagination from "@/components/Pagination";
@@ -216,7 +216,7 @@ export default async function Downloads({
           {MODS.map((mod) => (
             <a
               key={mod.name}
-              href={DISCORD_URL}
+              href={MODS_DISCORD_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="cz-card group relative block p-5"
@@ -276,7 +276,7 @@ export default async function Downloads({
           {TOOLS.map((tool) => (
             <a
               key={tool.name}
-              href={DISCORD_URL}
+              href={MODS_DISCORD_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="cz-card group relative block p-5"

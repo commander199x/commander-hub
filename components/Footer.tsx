@@ -9,6 +9,9 @@ export default function Footer() {
         </span>
 
         <div className="flex items-center gap-6">
+          <a href="/donate" style={{ color: C.radar }}>
+            Donate
+          </a>
           <a href={SUPPORT_DISCORD_URL} target="_blank" rel="noopener noreferrer" style={{ color: C.amber }}>
             Support
           </a>

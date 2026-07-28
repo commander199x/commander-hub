@@ -15,3 +15,4 @@ export const DISCORD_URL = "https://discord.gg/6KN9cfudQ";
 export const SUPPORT_DISCORD_URL = "https://discord.com/channels/1483950869572751514/1484583468603150418";
 export const JOIN_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdaC-jbL9lDb-mCZfka5d0ft9csbkEKFOuNDnTw9luCeR8a9A/viewform?usp=header";
 export const JOIN_FORM_EMBED_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdaC-jbL9lDb-mCZfka5d0ft9csbkEKFOuNDnTw9luCeR8a9A/viewform?embedded=true";
+export const MODS_DISCORD_URL = "https://discord.com/channels/1483950869572751514/1483951857591386244";

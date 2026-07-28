@@ -105,6 +105,33 @@ export default function Home() {
             </span>
           </div>
         </a>
+        <a
+          href="/donate"
+          className="cz-card group relative block p-6 mt-4"
+          style={{ background: C.panel, border: `1px solid ${C.radar}` }}
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <span className="text-[10px] uppercase tracking-widest" style={{ color: C.radar }}>
+                Support us
+              </span>
+              <h3 className="cz-display uppercase text-xl mt-1" style={{ color: C.paper, fontWeight: 600 }}>
+                Donate to the clan
+              </h3>
+              <p className="text-xs mt-2" style={{ color: C.muted }}>
+                Help cover hosting, tournament prizes, and community tools.
+              </p>
+            </div>
+
+            <span
+              className="inline-flex items-center gap-2 text-xs uppercase tracking-widest px-6 py-3 shrink-0"
+              style={{ border: `1px solid ${C.radar}`, color: C.radar }}
+            >
+              Donate
+              <ArrowUpRight size={14} />
+            </span>
+          </div>
+        </a>
 
         <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-14">
           {OPS.map((op) => {
