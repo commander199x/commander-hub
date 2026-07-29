@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Radio, Heart, ArrowUpRight, Phone, Coins, Server, Trophy, Wrench, ShieldCheck, Star } from "lucide-react";
+import { Radio, Heart, ArrowUpRight, Phone, Coins, Server, Trophy, Wrench, ShieldCheck, Star, Crown } from "lucide-react";
 import { C, DISCORD_URL } from "@/lib/theme";
 import CopyButton from "@/components/CopyButton";
+import { TOP_DONATOR, SUPPORTERS } from "@/lib/donors-data";
 
 export const metadata: Metadata = {
   title: "Donate",
@@ -11,7 +12,6 @@ export const metadata: Metadata = {
 // TODO: replace with your real paypal.me username (e.g. "yourname")
 const PAYPAL_USERNAME = "TODO";
 
-// paypal.me supports a pre-filled amount via URL: paypal.me/username/10
 const paypalLink = (amount?: number) =>
   `https://paypal.me/${PAYPAL_USERNAME}${amount ? `/${amount}` : ""}`;
 
@@ -46,23 +46,11 @@ const FUND_USES: FundUse[] = [
   { icon: Wrench, label: "Community tools & bots", amount: "$TODO", cadence: "per month" },
 ];
 
-// TODO: update these two numbers by hand as donations come in — this is a
-// static display, not a live payment tracker. Wire it up to a real backend
-// later if you want it to update automatically.
+// TODO: update these two numbers by hand as donations come in
 const GOAL_LABEL = "Summer 2026 tournament prize pool"; // TODO: replace with your real current goal
 const RAISED = 0; // TODO
 const GOAL = 200; // TODO
 const progressPct = Math.min(100, Math.round((RAISED / GOAL) * 100));
-
-interface Supporter {
-  name: string;
-}
-
-// TODO: add supporters here as donations come in — manually maintained,
-// same pattern as the TikTok video list.
-const SUPPORTERS: Supporter[] = [
-  { name: "TODO — first supporter" },
-];
 
 export default function DonatePage() {
   return (
@@ -88,9 +76,39 @@ export default function DonatePage() {
         </p>
 
         {/* ---------------------------------------------------------- */}
+        {/* TOP DONATOR — set TOP_DONATOR to null in donors-data.ts to hide */}
+        {/* ---------------------------------------------------------- */}
+        {TOP_DONATOR && (
+          <div
+            className="mt-10 p-6 flex items-center gap-4"
+            style={{ background: `${C.amber}14`, border: `1px solid ${C.amber}` }}
+          >
+            <Crown size={28} style={{ color: C.amber }} />
+            <div>
+              <span className="text-[10px] uppercase tracking-widest" style={{ color: C.amber }}>
+                Top supporter
+              </span>
+              <p className="text-base mt-0.5" style={{ color: C.paper, fontWeight: 600 }}>
+                {TOP_DONATOR.name}
+                {TOP_DONATOR.amount && (
+                  <span className="ml-2 text-sm" style={{ color: C.amber }}>
+                    {TOP_DONATOR.amount}
+                  </span>
+                )}
+              </p>
+              {TOP_DONATOR.message && (
+                <p className="text-xs mt-1" style={{ color: C.muted }}>
+                  {TOP_DONATOR.message}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ---------------------------------------------------------- */}
         {/* CURRENT GOAL + PROGRESS                                     */}
         {/* ---------------------------------------------------------- */}
-        <div className="mt-10 p-6" style={{ background: C.panel, border: `1px solid ${C.line}` }}>
+        <div className="mt-6 p-6" style={{ background: C.panel, border: `1px solid ${C.line}` }}>
           <div className="flex items-center justify-between text-xs uppercase tracking-widest">
             <span style={{ color: C.muted }}>Current goal</span>
             <span style={{ color: C.paper }}>
