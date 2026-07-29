@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Film, FolderOpen, Video, Trophy, Radio, ArrowUpRight } from "lucide-react";
 import { C, DISCORD_URL } from "@/lib/theme";
+import LiveBanner from "@/components/LiveBanner";
+import NewsFeed from "@/components/NewsFeed";
 
 const OPS = [
   { icon: Film, title: "Replay library", description: "Download professional Zero Hour matches.", href: "/replays", tag: "Archive" },
@@ -78,6 +80,7 @@ export default function Home() {
             Sectors <b style={{ color: C.paper }}>{OPS.length}</b>
           </span>
         </div>
+
         <a
           href="/join"
           className="cz-card group relative block p-6 mt-8"
@@ -105,6 +108,7 @@ export default function Home() {
             </span>
           </div>
         </a>
+
         <a
           href="/donate"
           className="cz-card group relative block p-6 mt-4"
@@ -132,6 +136,25 @@ export default function Home() {
             </span>
           </div>
         </a>
+
+        <div className="mt-10">
+          <LiveBanner />
+        </div>
+
+        <div className="flex items-center justify-between mt-10 mb-4">
+          <h2 className="cz-display uppercase text-2xl" style={{ fontWeight: 600 }}>
+            Latest
+          </h2>
+          <Link
+            href="/news"
+            className="text-xs uppercase tracking-widest"
+            style={{ color: C.amber }}
+          >
+            View all &rarr;
+          </Link>
+        </div>
+
+        <NewsFeed limit={3} />
 
         <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-14">
           {OPS.map((op) => {

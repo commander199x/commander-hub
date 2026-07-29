@@ -5,6 +5,8 @@ import { C, MODS_DISCORD_URL } from "@/lib/theme";
 import { maps } from "@/lib/maps-data";
 import MapSearch from "@/components/MapSearch";
 import Pagination from "@/components/Pagination";
+import LiveBanner from "@/components/LiveBanner";
+import NewsFeed from "@/components/NewsFeed";
 
 export const metadata: Metadata = {
   title: "Downloads",

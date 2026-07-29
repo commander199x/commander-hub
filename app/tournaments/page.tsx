@@ -1,20 +1,15 @@
-import { Radio, Trophy } from "lucide-react";
+import type { Metadata } from "next";
+import { Radio, Trophy, ArrowUpRight } from "lucide-react";
+import { C, DISCORD_URL } from "@/lib/theme";
 
-/* ------------------------------------------------------------------ */
-/*  PALETTE — kept identical across every page in the site.            */
-/*  Change one, change all.                                            */
-/* ------------------------------------------------------------------ */
-
-const C = {
-  void: "#0A0C08",
-  panel: "#12150E",
-  line: "#272B1E",
-  lineStrong: "#3A4029",
-  amber: "#E8A63D",
-  radar: "#8FBF4F",
-  paper: "#EDEAE0",
-  muted: "#83866F",
+export const metadata: Metadata = {
+  title: "Tournaments",
+  description: "Events, rankings and clan wars for the Generals Zero Hour community.",
 };
+
+// Flip this to false once you have a real tournament to show — the full
+// event grid below is untouched and ready to go the moment you do.
+const COMING_SOON = true;
 
 type Status = "Registration Open" | "Coming Soon" | "Active";
 
@@ -25,24 +20,11 @@ interface Event {
 }
 
 const events: Event[] = [
-  {
-    name: "Commander Tournament 2026",
-    status: "Registration Open",
-    info: "1v1 and team battles.",
-  },
-  {
-    name: "Clan Championship",
-    status: "Coming Soon",
-    info: "International Generals Zero Hour event.",
-  },
-  {
-    name: "Weekly Community War",
-    status: "Active",
-    info: "Play with the best players.",
-  },
+  { name: "Commander Tournament 2026", status: "Registration Open", info: "1v1 and team battles." },
+  { name: "Clan Championship", status: "Coming Soon", info: "International Generals Zero Hour event." },
+  { name: "Weekly Community War", status: "Active", info: "Play with the best players." },
 ];
 
-/* Status → accent color and whether the live-pulse dot should animate */
 const STATUS_STYLE: Record<Status, { color: string; live: boolean }> = {
   "Registration Open": { color: C.radar, live: true },
   Active: { color: C.radar, live: true },
@@ -50,31 +32,51 @@ const STATUS_STYLE: Record<Status, { color: string; live: boolean }> = {
 };
 
 export default function Tournaments() {
+  if (COMING_SOON) {
+    return (
+      <main className="min-h-screen w-full cz-grid-bg flex items-center justify-center">
+        <div className="max-w-lg mx-auto px-6 text-center py-24">
+          <div className="flex items-center justify-center gap-2 text-xs tracking-widest uppercase mb-6" style={{ color: C.radar }}>
+            <Radio size={13} className="cz-live" />
+            <span>Field comms &middot; Generals Zero Hour</span>
+          </div>
+
+          <Trophy size={40} className="mx-auto" style={{ color: C.amber }} />
+
+          <h1
+            className="cz-display uppercase mt-6 leading-[0.95]"
+            style={{ fontSize: "clamp(2.4rem, 6vw, 3.6rem)", fontWeight: 700, letterSpacing: "0.01em" }}
+          >
+            Tournaments
+            <br />
+            <span style={{ color: C.amber }}>Coming Soon</span>
+          </h1>
+
+          <p className="text-sm mt-6" style={{ color: C.muted }}>
+            We&apos;re putting together our first official event. Join the Discord to be
+            the first to know when registration opens.
+          </p>
+
+          <a
+            href={DISCORD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 mt-8 text-xs uppercase tracking-widest px-6 py-3"
+            style={{ background: C.amber, color: C.void, fontWeight: 600 }}
+          >
+            Get notified on Discord
+            <ArrowUpRight size={14} />
+          </a>
+        </div>
+      </main>
+    );
+  }
+
   const activeCount = events.filter((e) => e.status !== "Coming Soon").length;
 
   return (
-    <main
-      className="min-h-screen w-full"
-      style={{
-        background: C.void,
-        color: C.paper,
-        fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-        backgroundImage: `linear-gradient(${C.line}22 1px, transparent 1px), linear-gradient(90deg, ${C.line}22 1px, transparent 1px)`,
-        backgroundSize: "42px 42px",
-      }}
-    >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-        .cz-display { font-family: 'Oswald', sans-serif; }
-        @keyframes cz-blink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
-        .cz-live { animation: cz-blink 1.6s ease-in-out infinite; }
-        .cz-card:hover .cz-bracket { opacity: 1; }
-      `}</style>
-
+    <main className="min-h-screen w-full cz-grid-bg">
       <div className="max-w-6xl mx-auto px-6 md:px-10 py-14">
-        {/* ---------------------------------------------------------- */}
-        {/* HEADER                                                      */}
-        {/* ---------------------------------------------------------- */}
         <div className="flex items-center gap-2 text-xs tracking-widest uppercase" style={{ color: C.radar }}>
           <Radio size={13} className="cz-live" />
           <span>Field comms &middot; Generals Zero Hour</span>
@@ -103,9 +105,6 @@ export default function Tournaments() {
           </span>
         </div>
 
-        {/* ---------------------------------------------------------- */}
-        {/* GRID                                                        */}
-        {/* ---------------------------------------------------------- */}
         <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mt-10">
           {events.map((event) => {
             const style = STATUS_STYLE[event.status];
@@ -133,13 +132,7 @@ export default function Tournaments() {
                   >
                     <span
                       className={style.live ? "cz-live" : ""}
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        background: style.color,
-                        display: "inline-block",
-                      }}
+                      style={{ width: 6, height: 6, borderRadius: "50%", background: style.color, display: "inline-block" }}
                     />
                     {event.status}
                   </span>
