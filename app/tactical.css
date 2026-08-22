@@ -1,0 +1,48 @@
+.cz-display {
+  font-family: var(--font-display), sans-serif;
+}
+
+@keyframes cz-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.cz-live {
+  animation: cz-blink 1.6s ease-in-out infinite;
+}
+
+.cz-card:hover .cz-bracket {
+  opacity: 1;
+}
+
+@keyframes cz-sweep {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(220%); }
+}
+.cz-card:hover .cz-sweep {
+  animation: cz-sweep 1.4s linear infinite;
+}
+
+.cz-nav-link {
+  position: relative;
+}
+.cz-nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 1px;
+  background: #e8a63d;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+.cz-nav-link:hover::after {
+  transform: scaleX(1);
+}
+
+.cz-grid-bg {
+  background-image: linear-gradient(#272b1e22 1px, transparent 1px),
+    linear-gradient(90deg, #272b1e22 1px, transparent 1px);
+  background-size: 42px 42px;
+}
