@@ -6,6 +6,7 @@ import { C } from "@/lib/theme";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import "./globals.css";
 import "./tactical.css";
+import { Analytics } from "@vercel/analytics/next";
 
 const oswald = Oswald({
   subsets: ["latin"],
@@ -66,6 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <LanguageProvider>
           <Header />
           {children}
+          <Analytics />
           <Footer />
         </LanguageProvider>
       </body>
