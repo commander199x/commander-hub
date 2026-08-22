@@ -13,7 +13,7 @@ export const maps: MapEntry[] = [
     {
     name: "Commander Twilight",
     description: "Snow Twilight 4v4 Created and Edited By Missile and Commander.",
-    image: "/downloads/maps/Commander Twilight.png",
+    image: "/downloads/maps/CommanderTwilight.png",
     file: "/downloads/maps/Commander Twilight.zip",
   },
     {
