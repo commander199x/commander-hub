@@ -10,6 +10,18 @@ export interface MapEntry {
 // importing a static array. The search/pagination logic below doesn't need
 // to change either way — only where `maps` comes from.
 export const maps: MapEntry[] = [
+    {
+    name: "Commander Twilight",
+    description: "Snow Twilight 4v4 Created and Edited By Missile and Commander.",
+    image: "/downloads/maps/Commander Twilight.png",
+    file: "/downloads/maps/Commander Twilight.zip",
+  },
+    {
+    name: "Commander Twilight V2",
+    description: "Twilight 4v4 Created and Edited By Missile and Commander. ",
+    image: "/downloads/maps/commander twilight v2.png",
+    file: "/downloads/maps/commander twilight v2.zip",
+  },
   {
     name: "South Lebanon جنوب لبنان",
     description: "Competitive 4v4 city map, last_v2 balance pass.",
