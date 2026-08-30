@@ -109,6 +109,17 @@
   vertical-align: middle;
 }
 
+.chat-admin-badge {
+  display: inline-block;
+  color: #f5a623;
+  border: 1px solid #f5a623;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  padding: 0.05rem 0.3rem;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
 .chat-content {
   color: #e6e6e6;
 }

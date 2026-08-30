@@ -15,6 +15,7 @@ interface Message {
 
 interface ProfileInfo {
   is_team: boolean;
+  is_admin: boolean;
   avatar_url: string | null;
 }
 
@@ -80,14 +81,14 @@ export default function ChatPage() {
     async function loadTeamUsernames() {
       const { data } = await supabase
         .from("profiles")
-        .select("username, is_team, avatar_url");
+        .select("username, is_team, is_admin, avatar_url");
 
       const teamSet = new Set<string>();
       const map = new Map<string, ProfileInfo>();
 
       (data ?? []).forEach((p) => {
         if (p.is_team) teamSet.add(p.username);
-        map.set(p.username, { is_team: p.is_team, avatar_url: p.avatar_url });
+        map.set(p.username, { is_team: p.is_team, is_admin: p.is_admin, avatar_url: p.avatar_url });
       });
 
       setTeamUsernames(teamSet);
@@ -183,6 +184,7 @@ export default function ChatPage() {
 
           {messages.map((msg) => {
             const isTeam = teamUsernames.has(msg.username);
+            const isAdminUser = profileMap.get(msg.username)?.is_admin ?? false;
             const avatarUrl = profileMap.get(msg.username)?.avatar_url;
             return (
               <div key={msg.id} className={`chat-message${isTeam ? " chat-message-team" : ""}`}>
@@ -196,6 +198,7 @@ export default function ChatPage() {
                 <Link href={`/profile/${msg.username}`} className={`chat-username${isTeam ? " chat-username-team" : ""}`}>
                   {msg.username}
                 </Link>
+                {isAdminUser && <span className="chat-admin-badge">ADMIN</span>}
                 {isTeam && <span className="chat-team-badge">TEAM</span>}
                 <span className="chat-content">{msg.content}</span>
                 {isAdmin && (
