@@ -1,0 +1,173 @@
+/* app/auth.css
+   Styling for /signup, /login, /profile/edit, and /profile/[username].
+   Import this in each of those page files:  import "@/app/auth.css";
+
+   Colors are approximated from the site's dark background + amber/orange
+   accent look. Swap the CSS variables below for your real values from
+   tactical.css / theme.ts to get an exact match. */
+
+:root {
+  --auth-bg: #0a0a0a;
+  --auth-accent: #f5a623;
+  --auth-accent-hover: #ffb84d;
+  --auth-text: #e6e6e6;
+  --auth-muted: #8a8a8a;
+  --auth-border: #2a2a2a;
+  --auth-error: #ff5c5c;
+  --auth-font: "Courier New", ui-monospace, monospace;
+}
+
+.auth-page {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--auth-bg);
+  padding: 2rem 1rem;
+}
+
+.auth-form {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border: 1px solid var(--auth-border);
+  padding: 2rem;
+  background: #111111;
+}
+
+.auth-form h1 {
+  font-family: var(--auth-font);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--auth-accent);
+  font-size: 1.1rem;
+  margin: 0 0 1.2rem 0;
+}
+
+.auth-form label {
+  font-family: var(--auth-font);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--auth-muted);
+  margin-top: 0.6rem;
+}
+
+.auth-form input,
+.auth-form textarea {
+  background: #0a0a0a;
+  border: 1px solid var(--auth-border);
+  color: var(--auth-text);
+  font-family: var(--auth-font);
+  font-size: 0.9rem;
+  padding: 0.55rem 0.7rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.auth-form input:focus,
+.auth-form textarea:focus {
+  border-color: var(--auth-accent);
+}
+
+.auth-form button {
+  margin-top: 1.4rem;
+  background: var(--auth-accent);
+  color: #0a0a0a;
+  border: none;
+  font-family: var(--auth-font);
+  text-transform: uppercase;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  font-size: 0.85rem;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.auth-form button:hover:not(:disabled) {
+  background: var(--auth-accent-hover);
+}
+
+.auth-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-error {
+  color: var(--auth-error);
+  font-family: var(--auth-font);
+  font-size: 0.78rem;
+  margin: 0.6rem 0 0 0;
+}
+
+.auth-switch {
+  margin-top: 1.2rem;
+  font-family: var(--auth-font);
+  font-size: 0.78rem;
+  color: var(--auth-muted);
+  text-align: center;
+}
+
+.auth-switch a {
+  color: var(--auth-accent);
+  text-decoration: none;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
+}
+
+/* Profile pages */
+
+.profile-page {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--auth-bg);
+  padding: 2rem 1rem;
+}
+
+.profile-card {
+  width: 100%;
+  max-width: 420px;
+  border: 1px solid var(--auth-border);
+  background: #111111;
+  padding: 2rem;
+  text-align: center;
+}
+
+.profile-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--auth-accent);
+  margin-bottom: 1rem;
+}
+
+.profile-card h1 {
+  font-family: var(--auth-font);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--auth-accent);
+  font-size: 1.2rem;
+  margin: 0 0 0.3rem 0;
+}
+
+.profile-joined {
+  font-family: var(--auth-font);
+  font-size: 0.75rem;
+  color: var(--auth-muted);
+  margin: 0 0 1rem 0;
+}
+
+.profile-bio {
+  font-family: var(--auth-font);
+  font-size: 0.85rem;
+  color: var(--auth-text);
+  line-height: 1.5;
+}

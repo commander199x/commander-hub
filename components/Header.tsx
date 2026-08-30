@@ -1,18 +1,65 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { C, DISCORD_URL } from "@/lib/theme";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Header() {
   const [open, setOpen] = useState(false);
   const { t } = useLanguage();
+  const supabase = createClient();
+
+  const [username, setUsername] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("username, avatar_url")
+          .eq("id", user.id)
+          .single();
+
+        setUsername(profile?.username ?? null);
+        setAvatarUrl(profile?.avatar_url ?? null);
+      } else {
+        setUsername(null);
+        setAvatarUrl(null);
+      }
+
+      setAuthLoading(false);
+    }
+
+    loadUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      loadUser();
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    setUsername(null);
+    setOpen(false);
+  }
 
   const NAV = [
     { label: t("nav.home"), href: "/" },
+    { label: "CHAT", href: "/chat" },
     { label: t("nav.replays"), href: "/replays" },
     { label: t("nav.downloads"), href: "/downloads" },
     { label: t("nav.videos"), href: "/videos" },
@@ -38,7 +85,48 @@ export default function Header() {
 
           <LanguageSwitcher />
 
-<a            href={DISCORD_URL}
+          {!authLoading && (
+            username ? (
+              <>
+                <Link
+                  href={`/profile/${username}`}
+                  className="cz-nav-link"
+                  style={{ color: C.paper, display: "flex", alignItems: "center", gap: "0.5rem" }}
+                >
+                  <img
+                    src={avatarUrl || "/default-avatar.svg"}
+                    alt={username}
+                    style={{
+                      width: "22px",
+                      height: "22px",
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      border: `1px solid ${C.amber}`,
+                    }}
+                  />
+                  {username.toUpperCase()}
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="cz-nav-link"
+                  style={{ color: C.muted, background: "none", border: "none", cursor: "pointer" }}
+                >
+                  SIGN OUT
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="cz-nav-link"
+                style={{ color: C.paper }}
+              >
+                SIGN IN
+              </Link>
+            )
+          )}
+
+          <a
+            href={DISCORD_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs uppercase tracking-widest px-4 py-2 transition-opacity hover:opacity-90"
@@ -78,7 +166,50 @@ export default function Header() {
             </Link>
           ))}
 
-<a           href={DISCORD_URL}
+          {!authLoading && (
+            username ? (
+              <>
+                <Link
+                  href={`/profile/${username}`}
+                  onClick={() => setOpen(false)}
+                  className="py-3"
+                  style={{ color: C.paper, borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", gap: "0.5rem" }}
+                >
+                  <img
+                    src={avatarUrl || "/default-avatar.svg"}
+                    alt={username}
+                    style={{
+                      width: "22px",
+                      height: "22px",
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      border: `1px solid ${C.amber}`,
+                    }}
+                  />
+                  {username.toUpperCase()}
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="py-3 text-left"
+                  style={{ color: C.muted, background: "none", border: "none", borderBottom: `1px solid ${C.line}` }}
+                >
+                  SIGN OUT
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setOpen(false)}
+                className="py-3"
+                style={{ color: C.paper, borderBottom: `1px solid ${C.line}` }}
+              >
+                SIGN IN
+              </Link>
+            )
+          )}
+
+          <a
+            href={DISCORD_URL}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}
