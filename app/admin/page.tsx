@@ -11,6 +11,9 @@ interface Profile {
   banned: boolean;
   is_admin: boolean;
   is_team: boolean;
+  is_owner: boolean;
+  wins: number;
+  losses: number;
 }
 
 export default function AdminPage() {
@@ -48,7 +51,7 @@ export default function AdminPage() {
 
       const { data: allUsers } = await supabase
         .from("profiles")
-        .select("id, username, banned, is_admin, is_team")
+        .select("id, username, banned, is_admin, is_team, is_owner, wins, losses")
         .order("username", { ascending: true });
 
       setUsers(allUsers ?? []);
@@ -93,6 +96,40 @@ export default function AdminPage() {
     }
   }
 
+  async function adjustWins(id: string, delta: number) {
+    const user = users.find((u) => u.id === id);
+    if (!user) return;
+    const newWins = Math.max(0, user.wins + delta);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ wins: newWins })
+      .eq("id", id);
+
+    if (!error) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === id ? { ...u, wins: newWins } : u))
+      );
+    }
+  }
+
+  async function adjustLosses(id: string, delta: number) {
+    const user = users.find((u) => u.id === id);
+    if (!user) return;
+    const newLosses = Math.max(0, user.losses + delta);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ losses: newLosses })
+      .eq("id", id);
+
+    if (!error) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === id ? { ...u, losses: newLosses } : u))
+      );
+    }
+  }
+
   if (loading) {
     return <main className="admin-page">Loading...</main>;
   }
@@ -121,9 +158,21 @@ export default function AdminPage() {
             <div key={u.id} className="admin-user-row">
               <span className="admin-username">
                 {u.username}
+                {u.is_owner && <span className="admin-badge admin-badge-owner">OWNER</span>}
                 {u.is_admin && <span className="admin-badge">ADMIN</span>}
                 {u.is_team && <span className="admin-badge admin-badge-team">TEAM</span>}
               </span>
+              <div className="admin-stats-controls">
+                <span className="admin-stat-label">W</span>
+                <button className="admin-stat-btn" onClick={() => adjustWins(u.id, -1)}>-</button>
+                <span className="admin-stat-value admin-stat-wins">{u.wins}</span>
+                <button className="admin-stat-btn" onClick={() => adjustWins(u.id, 1)}>+</button>
+
+                <span className="admin-stat-label">L</span>
+                <button className="admin-stat-btn" onClick={() => adjustLosses(u.id, -1)}>-</button>
+                <span className="admin-stat-value admin-stat-losses">{u.losses}</span>
+                <button className="admin-stat-btn" onClick={() => adjustLosses(u.id, 1)}>+</button>
+              </div>
               <div className="admin-actions">
                 <button
                   className={u.is_team ? "admin-unteam-btn" : "admin-team-btn"}
@@ -140,8 +189,8 @@ export default function AdminPage() {
                 <button
                   className={u.banned ? "admin-unban-btn" : "admin-ban-btn"}
                   onClick={() => toggleBan(u.id, u.banned)}
-                  disabled={u.is_admin}
-                  title={u.is_admin ? "Cannot ban an admin" : undefined}
+                  disabled={u.is_admin || u.is_owner}
+                  title={u.is_admin || u.is_owner ? "Cannot ban an admin/owner" : undefined}
                 >
                   {u.banned ? "Unban" : "Ban"}
                 </button>

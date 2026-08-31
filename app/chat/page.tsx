@@ -16,11 +16,17 @@ interface Message {
 interface ProfileInfo {
   is_team: boolean;
   is_admin: boolean;
+  is_owner: boolean;
   avatar_url: string | null;
 }
 
 const MAX_LENGTH = 300;
 const COOLDOWN_MS = 3000;
+const GROUP_WINDOW_MS = 5 * 60 * 1000; // messages within 5 min from the same person group together
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
 
 export default function ChatPage() {
   const supabase = createClient();
@@ -81,14 +87,14 @@ export default function ChatPage() {
     async function loadTeamUsernames() {
       const { data } = await supabase
         .from("profiles")
-        .select("username, is_team, is_admin, avatar_url");
+        .select("username, is_team, is_admin, is_owner, avatar_url");
 
       const teamSet = new Set<string>();
       const map = new Map<string, ProfileInfo>();
 
       (data ?? []).forEach((p) => {
         if (p.is_team) teamSet.add(p.username);
-        map.set(p.username, { is_team: p.is_team, is_admin: p.is_admin, avatar_url: p.avatar_url });
+        map.set(p.username, { is_team: p.is_team, is_admin: p.is_admin, is_owner: p.is_owner, avatar_url: p.avatar_url });
       });
 
       setTeamUsernames(teamSet);
@@ -122,7 +128,7 @@ export default function ChatPage() {
   }, [supabase]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   async function handleSend(e: React.FormEvent) {
@@ -173,7 +179,13 @@ export default function ChatPage() {
   return (
     <main className="chat-page">
       <div className="chat-window">
-        <div className="chat-header">Community Chat</div>
+        <div className="chat-header">
+          <span className="chat-header-title">Community Chat</span>
+          <span className="chat-header-live">
+            <span className="chat-live-dot" />
+            Live
+          </span>
+        </div>
 
         <div className="chat-messages" ref={scrollRef}>
           {loadingMessages && <p className="chat-status">Loading messages...</p>}
@@ -182,35 +194,68 @@ export default function ChatPage() {
             <p className="chat-status">No messages yet. Be the first to say something.</p>
           )}
 
-          {messages.map((msg) => {
+          {messages.map((msg, i) => {
+            const prev = messages[i - 1];
+            const isGrouped =
+              prev &&
+              prev.username === msg.username &&
+              new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() < GROUP_WINDOW_MS;
+
             const isTeam = teamUsernames.has(msg.username);
             const isAdminUser = profileMap.get(msg.username)?.is_admin ?? false;
+            const isOwnerUser = profileMap.get(msg.username)?.is_owner ?? false;
             const avatarUrl = profileMap.get(msg.username)?.avatar_url;
+            const highlighted = isTeam || isAdminUser || isOwnerUser;
+
+            let roleBadge: { label: string; className: string } | null = null;
+            if (isOwnerUser) roleBadge = { label: "OWNER", className: "chat-owner-badge" };
+            else if (isAdminUser) roleBadge = { label: "ADMIN", className: "chat-admin-badge" };
+            else if (isTeam) roleBadge = { label: "TEAM", className: "chat-team-badge" };
+
             return (
-              <div key={msg.id} className={`chat-message${isTeam ? " chat-message-team" : ""}`}>
-                <Link href={`/profile/${msg.username}`} className="chat-avatar-link">
-                  <img
-                    src={avatarUrl || "/default-avatar.svg"}
-                    alt={msg.username}
-                    className="chat-avatar"
-                  />
-                </Link>
-                <Link href={`/profile/${msg.username}`} className={`chat-username${isTeam ? " chat-username-team" : ""}`}>
-                  {msg.username}
-                </Link>
-                {isAdminUser && <span className="chat-admin-badge">ADMIN</span>}
-                {isTeam && <span className="chat-team-badge">TEAM</span>}
-                <span className="chat-content">{msg.content}</span>
-                {isAdmin && (
-                  <button
-                    className="chat-delete-btn"
-                    onClick={() => handleDelete(msg.id)}
-                    aria-label="Delete message"
-                    title="Delete message"
-                  >
-                    ✕
-                  </button>
-                )}
+              <div
+                key={msg.id}
+                className={`chat-message${highlighted ? " chat-message-highlighted" : ""}${isGrouped ? " chat-message-grouped" : ""}`}
+              >
+                <div className="chat-avatar-slot">
+                  {!isGrouped && (
+                    <Link href={`/profile/${msg.username}`} className="chat-avatar-link">
+                      <img
+                        src={avatarUrl || "/default-avatar.svg"}
+                        alt={msg.username}
+                        className="chat-avatar"
+                      />
+                    </Link>
+                  )}
+                </div>
+
+                <div className="chat-message-body">
+                  {!isGrouped && (
+                    <div className="chat-message-meta">
+                      <Link href={`/profile/${msg.username}`} className={`chat-username${highlighted ? " chat-username-highlighted" : ""}`}>
+                        {msg.username}
+                      </Link>
+                      {roleBadge && <span className={roleBadge.className}>{roleBadge.label}</span>}
+                      <span className="chat-timestamp">{formatTime(msg.created_at)}</span>
+                    </div>
+                  )}
+                  <div className="chat-content-row">
+                    <span className="chat-content">{msg.content}</span>
+                    {isGrouped && (
+                      <span className="chat-timestamp chat-timestamp-hover">{formatTime(msg.created_at)}</span>
+                    )}
+                    {isAdmin && (
+                      <button
+                        className="chat-delete-btn"
+                        onClick={() => handleDelete(msg.id)}
+                        aria-label="Delete message"
+                        title="Delete message"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -234,7 +279,7 @@ export default function ChatPage() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type a message..."
+              placeholder="Message the community..."
               maxLength={MAX_LENGTH}
             />
             <button type="submit" disabled={sending || !input.trim()}>
