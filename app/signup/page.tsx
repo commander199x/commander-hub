@@ -5,13 +5,13 @@ import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 import "@/app/auth.css";
 
-// Replace with your real Turnstile Site Key from dash.cloudflare.com
+// Real Turnstile Site Key
 const TURNSTILE_SITE_KEY = "0x4AAAAAAEiHWtic0AyMmCY1";
 
 declare global {
   interface Window {
     turnstile: any;
-    onTurnstileLoad: () => void;
+    onTurnstileLoadSignup: () => void;
   }
 }
 
@@ -43,6 +43,12 @@ export default function SignupPage() {
     e.preventDefault();
     setError(null);
 
+    const usernamePattern = /^[a-zA-Z0-9_]+$/;
+    if (!usernamePattern.test(username)) {
+      setError("Username can only contain letters, numbers, and underscores (no spaces or symbols).");
+      return;
+    }
+
     if (!captchaToken) {
       setError("Please complete the CAPTCHA.");
       return;
@@ -50,6 +56,9 @@ export default function SignupPage() {
 
     setLoading(true);
 
+    // Username is passed as metadata; a database trigger creates the
+    // matching profiles row (works even before email confirmation, since
+    // no session exists yet at this point).
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -92,10 +101,10 @@ export default function SignupPage() {
   return (
     <>
       <Script
-        src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit"
+        src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoadSignup&render=explicit"
         strategy="afterInteractive"
         onLoad={() => {
-          window.onTurnstileLoad = () => setTurnstileReady(true);
+          window.onTurnstileLoadSignup = () => setTurnstileReady(true);
           if (window.turnstile) setTurnstileReady(true);
         }}
       />
@@ -113,7 +122,12 @@ export default function SignupPage() {
             required
             minLength={3}
             maxLength={24}
+            pattern="[a-zA-Z0-9_]+"
+            title="Letters, numbers, and underscores only"
           />
+          <p className="auth-switch" style={{ margin: "0.2rem 0 0 0", textAlign: "left", fontSize: "0.7rem" }}>
+            Letters, numbers, and underscores only.
+          </p>
 
           <label htmlFor="email">Email</label>
           <input
