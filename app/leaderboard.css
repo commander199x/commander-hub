@@ -1,0 +1,104 @@
+/* app/leaderboard.css */
+
+.leaderboard-page {
+  min-height: 70vh;
+  background: #0a0a0a;
+  padding: 3rem 1.5rem;
+}
+
+.leaderboard-container {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.leaderboard-page h1 {
+  font-family: "Courier New", ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #f5a623;
+  font-size: 1.3rem;
+  margin: 0 0 0.3rem 0;
+}
+
+.leaderboard-subtitle {
+  font-family: "Courier New", ui-monospace, monospace;
+  font-size: 0.78rem;
+  color: #8a8a8a;
+  margin: 0 0 1.5rem 0;
+}
+
+.leaderboard-table {
+  border: 1px solid #2a2a2a;
+  background: #111111;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 50px 1fr 50px 50px 60px;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid #2a2a2a;
+  text-decoration: none;
+  font-family: "Courier New", ui-monospace, monospace;
+  font-size: 0.82rem;
+  color: #e6e6e6;
+  transition: background 0.15s ease;
+}
+
+.leaderboard-row:hover:not(.leaderboard-header-row) {
+  background: rgba(245, 166, 35, 0.06);
+}
+
+.leaderboard-row:last-child {
+  border-bottom: none;
+}
+
+.leaderboard-header-row {
+  color: #8a8a8a;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  cursor: default;
+}
+
+.lb-rank {
+  font-weight: bold;
+}
+
+.lb-player {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #2a2a2a;
+  flex-shrink: 0;
+}
+
+.lb-stat {
+  text-align: center;
+}
+
+.lb-wins {
+  color: #4ade80;
+}
+
+.lb-losses {
+  color: #ff5c5c;
+}
+
+.leaderboard-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #8a8a8a;
+  font-family: "Courier New", ui-monospace, monospace;
+  font-size: 0.85rem;
+}

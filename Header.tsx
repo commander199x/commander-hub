@@ -64,6 +64,9 @@ export default function Header() {
 
   const NAV = [
     { label: t("nav.home"), href: "/" },
+    { label: "CHAT", href: "/chat" },
+    { label: "MEMBERS", href: "/members" },
+    { label: "LEADERBOARD", href: "/leaderboard" },
     { label: t("nav.replays"), href: "/replays" },
     { label: t("nav.downloads"), href: "/downloads" },
     { label: t("nav.videos"), href: "/videos" },
