@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import "@/app/chat.css";
@@ -45,6 +45,12 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSentAt, setLastSentAt] = useState(0);
+  const [onlineCount, setOnlineCount] = useState(1);
+
+  const sessionId = useMemo(
+    () => (typeof crypto !== "undefined" ? crypto.randomUUID() : Math.random().toString(36)),
+    []
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -131,6 +137,33 @@ export default function ChatPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  // Track who's currently viewing the chat page (presence)
+  useEffect(() => {
+    if (loadingUser) return;
+
+    const presenceChannel = supabase.channel("chat-presence", {
+      config: { presence: { key: sessionId } },
+    });
+
+    presenceChannel
+      .on("presence", { event: "sync" }, () => {
+        const state = presenceChannel.presenceState();
+        setOnlineCount(Object.keys(state).length);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await presenceChannel.track({
+            username: username ?? "Guest",
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [loadingUser, username, sessionId, supabase]);
+
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -183,7 +216,7 @@ export default function ChatPage() {
           <span className="chat-header-title">Community Chat</span>
           <span className="chat-header-live">
             <span className="chat-live-dot" />
-            Live
+            {onlineCount} online
           </span>
         </div>
 
