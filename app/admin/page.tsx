@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import MatchForm from "@/components/MatchForm";
+import RecentMatchesAdmin from "@/components/RecentMatchesAdmin";
 import "@/app/admin.css";
 
 interface Profile {
@@ -145,6 +146,8 @@ export default function AdminPage() {
     <main className="admin-page">
       <div className="admin-panel">
         <MatchForm allUsers={users.map((u) => ({ username: u.username }))} />
+
+        <RecentMatchesAdmin />
 
         <h1>User Moderation</h1>
 

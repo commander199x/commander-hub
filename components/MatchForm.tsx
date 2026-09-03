@@ -22,6 +22,8 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
   const [tournamentName, setTournamentName] = useState("");
   const [round, setRound] = useState("");
   const [matchDate, setMatchDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [replayLink, setReplayLink] = useState("");
+  const [replayFile, setReplayFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -74,6 +76,32 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
     setTournamentName("");
     setRound("");
     setMatchDate(new Date().toISOString().slice(0, 10));
+    setReplayLink("");
+    setReplayFile(null);
+  }
+
+  // Resolves the final replay URL to store: an uploaded file takes
+  // priority over a pasted link if both are provided.
+  async function resolveReplayUrl(): Promise<string | null> {
+    if (replayFile) {
+      const ext = replayFile.name.split(".").pop() || "rep";
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("replays")
+        .upload(path, replayFile);
+
+      if (uploadError) {
+        setMessage(`Replay upload failed: ${uploadError.message}`);
+        return null;
+      }
+
+      const { data } = supabase.storage.from("replays").getPublicUrl(path);
+      return data.publicUrl;
+    }
+
+    if (replayLink.trim()) return replayLink.trim();
+
+    return null;
   }
 
   function switchMode(next: Mode) {
@@ -154,6 +182,7 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
       setSubmitting(true);
       const currentRatings = await fetchRatings(allParticipants);
       const deltas = computeTeamMatchDeltas(currentRatings, winners, losers);
+      const replayUrl = await resolveReplayUrl();
 
       const { error } = await supabase.from("matches").insert({
         mode,
@@ -164,6 +193,7 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
         round: round || null,
         rating_changes: deltas,
         created_at: getMatchTimestamp(),
+        replay_url: replayUrl,
       });
 
       if (!error) await applyRatingChanges(deltas, currentRatings);
@@ -191,6 +221,7 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
     setSubmitting(true);
     const currentRatings = await fetchRatings(participants);
     const deltas = computeFfaMatchDeltas(currentRatings, winner, losers);
+    const replayUrl = await resolveReplayUrl();
 
     const { error } = await supabase.from("matches").insert({
       mode,
@@ -201,6 +232,7 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
       round: round || null,
       rating_changes: deltas,
       created_at: getMatchTimestamp(),
+      replay_url: replayUrl,
     });
 
     if (!error) await applyRatingChanges(deltas, currentRatings);
@@ -488,6 +520,89 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
             fontFamily: "inherit",
           }}
         />
+      </div>
+
+      <div style={{ marginBottom: "0.75rem", padding: "0.6rem", border: "1px dashed #444", borderRadius: "4px" }}>
+        <p style={{ fontSize: "0.8rem", opacity: 0.7, marginBottom: "0.4rem" }}>
+          Replay (optional) — paste a link OR upload a file, not both:
+        </p>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          <input
+            type="text"
+            placeholder="Replay link (Discord, Drive, etc.)"
+            value={replayLink}
+            onChange={(e) => {
+              setReplayLink(e.target.value);
+              if (e.target.value) setReplayFile(null);
+            }}
+            disabled={!!replayFile}
+            style={{
+              flex: "1 1 220px",
+              background: "#131313",
+              border: "1px solid #333",
+              color: replayFile ? "#666" : "#eee",
+              padding: "0.4rem 0.6rem",
+              fontFamily: "inherit",
+            }}
+          />
+          <input
+            type="file"
+            id="replay-file-input"
+            accept=".rep,.zip"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              setReplayFile(file);
+              if (file) setReplayLink("");
+            }}
+            style={{ display: "none" }}
+          />
+          <label
+            htmlFor="replay-file-input"
+            style={{
+              flex: "1 1 220px",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              background: "#131313",
+              border: "1px solid #333",
+              color: "#eee",
+              padding: "0.4rem 0.6rem",
+              fontFamily: "inherit",
+              fontSize: "0.85rem",
+              cursor: "pointer",
+            }}
+          >
+            <span
+              style={{
+                background: "none",
+                border: "1px solid #f5a623",
+                color: "#f5a623",
+                padding: "0.2rem 0.6rem",
+                borderRadius: "3px",
+                fontSize: "0.75rem",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              Choose file
+            </span>
+            <span
+              style={{
+                opacity: 0.7,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {replayFile ? replayFile.name : "No file chosen"}
+            </span>
+          </label>
+        </div>
+        {replayFile && (
+          <p style={{ fontSize: "0.75rem", color: "#f5a623", marginTop: "0.4rem" }}>
+            Will upload: {replayFile.name}
+          </p>
+        )}
       </div>
 
       <textarea

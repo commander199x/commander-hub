@@ -14,6 +14,7 @@ type Match = {
   tournament_name: string | null;
   round: string | null;
   rating_changes: Record<string, number> | null;
+  replay_url: string | null;
   created_at: string;
 };
 
@@ -40,6 +41,11 @@ export default function LeaderboardPage() {
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [sortKey, setSortKey] = useState<SortKey>("wins");
+
+  const [editingReplayId, setEditingReplayId] = useState<string | null>(null);
+  const [editReplayLink, setEditReplayLink] = useState("");
+  const [editReplayFile, setEditReplayFile] = useState<File | null>(null);
+  const [savingReplay, setSavingReplay] = useState(false);
 
   async function loadData() {
     setLoading(true);
@@ -84,6 +90,54 @@ export default function LeaderboardPage() {
     const confirmed = window.confirm("Delete this match? This cannot be undone.");
     if (!confirmed) return;
     await supabase.from("matches").delete().eq("id", id);
+    loadData();
+  }
+
+  function startEditingReplay(matchId: string) {
+    setEditingReplayId(matchId);
+    setEditReplayLink("");
+    setEditReplayFile(null);
+  }
+
+  function cancelEditingReplay() {
+    setEditingReplayId(null);
+    setEditReplayLink("");
+    setEditReplayFile(null);
+  }
+
+  async function saveReplayForMatch(matchId: string) {
+    setSavingReplay(true);
+
+    let replayUrl: string | null = null;
+
+    if (editReplayFile) {
+      const ext = editReplayFile.name.split(".").pop() || "rep";
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("replays")
+        .upload(path, editReplayFile);
+
+      if (uploadError) {
+        alert(`Replay upload failed: ${uploadError.message}`);
+        setSavingReplay(false);
+        return;
+      }
+
+      const { data } = supabase.storage.from("replays").getPublicUrl(path);
+      replayUrl = data.publicUrl;
+    } else if (editReplayLink.trim()) {
+      replayUrl = editReplayLink.trim();
+    }
+
+    if (!replayUrl) {
+      alert("Paste a link or choose a file first.");
+      setSavingReplay(false);
+      return;
+    }
+
+    await supabase.from("matches").update({ replay_url: replayUrl }).eq("id", matchId);
+    setSavingReplay(false);
+    cancelEditingReplay();
     loadData();
   }
 
@@ -219,40 +273,65 @@ export default function LeaderboardPage() {
           <p>Loading...</p>
         ) : (
           <>
-            <div className="leaderboard-table">
-              <div className="leaderboard-row leaderboard-header-row">
-                <span className="lb-rank">#</span>
-                <span className="lb-player">Player</span>
-                <span className="lb-stat">Rating</span>
-                <span className="lb-stat">W</span>
-                <span className="lb-stat">L</span>
-                <span className="lb-stat">Win %</span>
+            <div className="leaderboard-table" style={{ display: "flex", flexDirection: "column" }}>
+              <div
+                className="leaderboard-header-row"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "40px 1fr 70px 50px 50px 70px",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.6rem 0.75rem",
+                }}
+              >
+                <span className="lb-rank" style={{ whiteSpace: "nowrap" }}>#</span>
+                <span className="lb-player" style={{ whiteSpace: "nowrap" }}>Player</span>
+                <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>Rating</span>
+                <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>W</span>
+                <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>L</span>
+                <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>Win %</span>
               </div>
 
               {ranked.map((p, i) => {
                 const total = p.wins + p.losses;
                 const winRate = total > 0 ? Math.round((p.wins / total) * 100) : 0;
                 return (
-                  <Link key={p.username} href={`/profile/${p.username}`} className="leaderboard-row">
-                    <span className="lb-rank">
+                  <Link
+                    key={p.username}
+                    href={`/profile/${p.username}`}
+                    className="leaderboard-row"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "40px 1fr 70px 50px 50px 70px",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      padding: "0.6rem 0.75rem",
+                    }}
+                  >
+                    <span className="lb-rank" style={{ whiteSpace: "nowrap" }}>
                       {i === 0 ? "👑" : i + 1}
                     </span>
-                    <span className="lb-player" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span
+                      className="lb-player"
+                      style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0, overflow: "hidden" }}
+                    >
                       <img
                         src={p.avatar_url || "/default-avatar.svg"}
                         alt={p.username}
                         className="lb-avatar"
-                        style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }}
+                        style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
                       />
-                      {p.username}
+                      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {p.username}
+                      </span>
                       {p.streak >= 3 && (
-                        <span style={{ fontSize: "0.75rem", color: "#f97316" }}>🔥{p.streak}</span>
+                        <span style={{ fontSize: "0.75rem", color: "#f97316", flexShrink: 0 }}>🔥{p.streak}</span>
                       )}
                     </span>
-                    <span className="lb-stat">{p.rating}</span>
-                    <span className="lb-stat lb-wins">{p.wins}</span>
-                    <span className="lb-stat lb-losses">{p.losses}</span>
-                    <span className="lb-stat">{winRate}%</span>
+                    <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.rating}</span>
+                    <span className="lb-stat lb-wins" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.wins}</span>
+                    <span className="lb-stat lb-losses" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.losses}</span>
+                    <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{winRate}%</span>
                   </Link>
                 );
               })}
@@ -267,8 +346,8 @@ export default function LeaderboardPage() {
               {filtered.slice(0, 20).map((m) => {
                 const losers = m.participants.filter((p) => !m.winners.includes(p));
                 return (
+                  <div key={m.id}>
                   <div
-                    key={m.id}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -293,7 +372,7 @@ export default function LeaderboardPage() {
                       }}
                     >
                       <span style={{ color: "#22c55e", fontSize: "0.9rem" }}>✓</span>
-                      <span style={{ fontSize: "0.85rem", color: "#eee" }}>
+                      <span style={{ fontSize: "0.85rem", color: "#eee", flex: 1 }}>
                         {m.winners.join(", ")}
                         {m.rating_changes && (
                           <span style={{ color: "#22c55e", marginLeft: "0.4rem" }}>
@@ -327,6 +406,58 @@ export default function LeaderboardPage() {
                         )}
                       </span>
                     </div>
+
+                    {m.replay_url ? (
+                      <a
+                        href={m.replay_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Download replay"
+                        style={{
+                          flex: "0 0 auto",
+                          fontSize: "0.7rem",
+                          color: "#f5a623",
+                          border: "1px solid #f5a623",
+                          borderRadius: "3px",
+                          padding: "0.25rem 0.6rem",
+                          textDecoration: "none",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        ⬇ Replay
+                      </a>
+                    ) : isAdmin ? (
+                      <button
+                        onClick={() => startEditingReplay(m.id)}
+                        style={{
+                          flex: "0 0 auto",
+                          fontSize: "0.7rem",
+                          color: "#888",
+                          background: "none",
+                          border: "1px dashed #444",
+                          borderRadius: "3px",
+                          padding: "0.25rem 0.6rem",
+                          whiteSpace: "nowrap",
+                          cursor: "pointer",
+                        }}
+                      >
+                        No replay — Add one
+                      </button>
+                    ) : (
+                      <span
+                        style={{
+                          flex: "0 0 auto",
+                          fontSize: "0.7rem",
+                          color: "#666",
+                          border: "1px solid #333",
+                          borderRadius: "3px",
+                          padding: "0.25rem 0.6rem",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        No replay found
+                      </span>
+                    )}
 
                     <span
                       style={{
@@ -370,6 +501,98 @@ export default function LeaderboardPage() {
                         Delete
                       </button>
                     )}
+                  </div>
+
+                  {editingReplayId === m.id && (
+                    <div
+                      style={{
+                        marginTop: "0.4rem",
+                        padding: "0.6rem",
+                        border: "1px dashed #f5a623",
+                        borderRadius: "4px",
+                        background: "#111",
+                        display: "flex",
+                        gap: "0.5rem",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Replay link"
+                        value={editReplayLink}
+                        onChange={(e) => {
+                          setEditReplayLink(e.target.value);
+                          if (e.target.value) setEditReplayFile(null);
+                        }}
+                        disabled={!!editReplayFile}
+                        style={{
+                          flex: "1 1 180px",
+                          background: "#131313",
+                          border: "1px solid #333",
+                          color: editReplayFile ? "#666" : "#eee",
+                          padding: "0.35rem 0.6rem",
+                          fontFamily: "inherit",
+                          fontSize: "0.8rem",
+                        }}
+                      />
+                      <input
+                        type="file"
+                        id={`replay-edit-${m.id}`}
+                        accept=".rep,.zip"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          setEditReplayFile(file);
+                          if (file) setEditReplayLink("");
+                        }}
+                        style={{ display: "none" }}
+                      />
+                      <label
+                        htmlFor={`replay-edit-${m.id}`}
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#f5a623",
+                          border: "1px solid #f5a623",
+                          borderRadius: "3px",
+                          padding: "0.35rem 0.6rem",
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {editReplayFile ? editReplayFile.name : "Choose file"}
+                      </label>
+                      <button
+                        onClick={() => saveReplayForMatch(m.id)}
+                        disabled={savingReplay}
+                        style={{
+                          fontSize: "0.75rem",
+                          background: "#f5a623",
+                          color: "#000",
+                          border: "none",
+                          borderRadius: "3px",
+                          padding: "0.35rem 0.7rem",
+                          cursor: "pointer",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {savingReplay ? "Saving..." : "Save"}
+                      </button>
+                      <button
+                        onClick={cancelEditingReplay}
+                        style={{
+                          fontSize: "0.75rem",
+                          background: "none",
+                          color: "#888",
+                          border: "1px solid #444",
+                          borderRadius: "3px",
+                          padding: "0.35rem 0.7rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                   </div>
                 );
               })}

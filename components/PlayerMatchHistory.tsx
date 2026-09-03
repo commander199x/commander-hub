@@ -9,6 +9,7 @@ type Match = {
   participants: string[];
   winners: string[];
   rating_changes: Record<string, number> | null;
+  replay_url: string | null;
   created_at: string;
 };
 
@@ -77,6 +78,17 @@ export default function PlayerMatchHistory({ username }: { username: string }) {
             <span style={{ marginLeft: "auto", opacity: 0.5, fontSize: "0.75rem" }}>
               {new Date(m.created_at).toLocaleDateString()}
             </span>
+            {m.replay_url && (
+              <a
+                href={m.replay_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Download replay"
+                style={{ color: "#f5a623", textDecoration: "none" }}
+              >
+                ⬇
+              </a>
+            )}
           </div>
         );
       })}
