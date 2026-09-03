@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { computeTeamMatchDeltas, computeFfaMatchDeltas, DEFAULT_RATING } from "@/lib/elo";
 
 type Profile = { username: string };
-type Mode = "3v3" | "4v4" | "ffa";
+type Mode = "2v2" | "3v3" | "4v4" | "ffa";
 
 export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
   const supabase = createClient();
@@ -57,8 +57,8 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
     if (winner === name) setWinner(null);
   }
 
-  const isTeamMode = mode === "3v3" || mode === "4v4";
-  const expectedTeamSize = mode === "3v3" ? 3 : 4;
+  const isTeamMode = mode === "2v2" || mode === "3v3" || mode === "4v4";
+  const expectedTeamSize = mode === "2v2" ? 2 : mode === "3v3" ? 3 : 4;
 
   // Converts the selected date (YYYY-MM-DD) into a timestamp for created_at.
   // Uses noon on that date to avoid timezone day-shift issues.
@@ -139,16 +139,40 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
     if (winner === username) setWinner(null);
   }
 
+  // 2v2/3v3/4v4 share one combined "team" rating; FFA has its own.
+  function ratingColumnFor(m: Mode): "rating_team" | "rating_ffa" {
+    if (m === "ffa") return "rating_ffa";
+    return "rating_team";
+  }
+
   async function fetchRatings(usernames: string[]): Promise<Record<string, number>> {
-    const { data } = await supabase
-      .from("profiles")
-      .select("username, rating")
-      .in("username", usernames);
+    const column = ratingColumnFor(mode);
+    const registeredSet = new Set(registeredNames);
+    const registered = usernames.filter((u) => registeredSet.has(u));
+    const guests = usernames.filter((u) => !registeredSet.has(u));
 
     const ratings: Record<string, number> = {};
-    for (const row of data ?? []) {
-      ratings[row.username] = row.rating ?? DEFAULT_RATING;
+
+    if (registered.length > 0) {
+      const { data } = await supabase
+        .from("profiles")
+        .select(`username, ${column}`)
+        .in("username", registered);
+      for (const row of (data ?? []) as any[]) {
+        ratings[row.username] = row[column] ?? DEFAULT_RATING;
+      }
     }
+
+    if (guests.length > 0) {
+      const { data } = await supabase
+        .from("guest_ratings")
+        .select(`name, ${column}`)
+        .in("name", guests);
+      for (const row of (data ?? []) as any[]) {
+        ratings[row.name] = row[column] ?? DEFAULT_RATING;
+      }
+    }
+
     return ratings;
   }
 
@@ -156,9 +180,17 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
     deltas: Record<string, number>,
     currentRatings: Record<string, number>
   ) {
+    const column = ratingColumnFor(mode);
+    const registeredSet = new Set(registeredNames);
+
     for (const username of Object.keys(deltas)) {
       const newRating = (currentRatings[username] ?? DEFAULT_RATING) + deltas[username];
-      await supabase.from("profiles").update({ rating: newRating }).eq("username", username);
+
+      if (registeredSet.has(username)) {
+        await supabase.from("profiles").update({ [column]: newRating }).eq("username", username);
+      } else {
+        await supabase.from("guest_ratings").upsert({ name: username, [column]: newRating }, { onConflict: "name" });
+      }
     }
   }
 
@@ -262,6 +294,7 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
             fontFamily: "inherit",
           }}
         >
+          <option value="2v2">2v2</option>
           <option value="3v3">3v3</option>
           <option value="4v4">4v4</option>
           <option value="ffa">FFA</option>

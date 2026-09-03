@@ -7,7 +7,7 @@ import "@/app/leaderboard.css";
 
 type Match = {
   id: string;
-  mode: "3v3" | "4v4" | "ffa";
+  mode: "2v2" | "3v3" | "4v4" | "ffa";
   participants: string[];
   winners: string[];
   notes: string | null;
@@ -32,9 +32,12 @@ type DateRange = "all" | "week" | "month";
 
 export default function LeaderboardPage() {
   const supabase = createClient();
-  const [mode, setMode] = useState<"3v3" | "4v4" | "ffa">("4v4");
+  const [view, setView] = useState<"team" | "ffa">("team");
+  const [teamSizeFilter, setTeamSizeFilter] = useState<"all" | "2v2" | "3v3" | "4v4">("all");
   const [matches, setMatches] = useState<Match[]>([]);
-  const [profiles, setProfiles] = useState<Record<string, { avatar_url: string | null; rating: number }>>({});
+  const [profiles, setProfiles] = useState<
+    Record<string, { avatar_url: string | null; rating_team: number; rating_ffa: number }>
+  >({});
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -57,11 +60,30 @@ export default function LeaderboardPage() {
 
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("username, avatar_url, rating");
-    const profileMap: Record<string, { avatar_url: string | null; rating: number }> = {};
+      .select("username, avatar_url, rating_team, rating_ffa");
+    const profileMap: Record<
+      string,
+      { avatar_url: string | null; rating_team: number; rating_ffa: number }
+    > = {};
     for (const p of profileData ?? []) {
-      profileMap[p.username] = { avatar_url: p.avatar_url, rating: p.rating ?? 1000 };
+      profileMap[p.username] = {
+        avatar_url: p.avatar_url,
+        rating_team: p.rating_team ?? 1000,
+        rating_ffa: p.rating_ffa ?? 1000,
+      };
     }
+
+    // Merge in guest ratings (players with no site account) so their
+    // rating displays correctly too, not just the 1000 default.
+    const { data: guestData } = await supabase.from("guest_ratings").select("name, rating_team, rating_ffa");
+    for (const g of guestData ?? []) {
+      profileMap[g.name] = {
+        avatar_url: null,
+        rating_team: g.rating_team ?? 1000,
+        rating_ffa: g.rating_ffa ?? 1000,
+      };
+    }
+
     setProfiles(profileMap);
 
     const {
@@ -89,6 +111,42 @@ export default function LeaderboardPage() {
   async function handleDeleteMatch(id: string) {
     const confirmed = window.confirm("Delete this match? This cannot be undone.");
     if (!confirmed) return;
+
+    // Reverse this match's rating changes before deleting it, so ratings
+    // stay in sync with actual match history instead of drifting.
+    const matchToDelete = matches.find((m) => m.id === id);
+    if (matchToDelete?.rating_changes) {
+      const column = matchToDelete.mode === "ffa" ? "rating_ffa" : "rating_team";
+      const usernames = Object.keys(matchToDelete.rating_changes);
+
+      const { data: currentProfiles } = await supabase
+        .from("profiles")
+        .select(`username, ${column}`)
+        .in("username", usernames);
+
+      const foundInProfiles = new Set((currentProfiles ?? []).map((p: any) => p.username));
+
+      for (const p of (currentProfiles ?? []) as any[]) {
+        const delta = matchToDelete.rating_changes[p.username] ?? 0;
+        const revertedRating = (p[column] ?? 1000) - delta;
+        await supabase.from("profiles").update({ [column]: revertedRating }).eq("username", p.username);
+      }
+
+      const guestUsernames = usernames.filter((u) => !foundInProfiles.has(u));
+      if (guestUsernames.length > 0) {
+        const { data: currentGuests } = await supabase
+          .from("guest_ratings")
+          .select(`name, ${column}`)
+          .in("name", guestUsernames);
+
+        for (const g of (currentGuests ?? []) as any[]) {
+          const delta = matchToDelete.rating_changes[g.name] ?? 0;
+          const revertedRating = (g[column] ?? 1000) - delta;
+          await supabase.from("guest_ratings").update({ [column]: revertedRating }).eq("name", g.name);
+        }
+      }
+    }
+
     await supabase.from("matches").delete().eq("id", id);
     loadData();
   }
@@ -150,10 +208,23 @@ export default function LeaderboardPage() {
     return true;
   });
 
-  const filtered = dateFiltered.filter((m) => m.mode === mode);
+  const viewFiltered = dateFiltered.filter((m) => {
+    if (view === "ffa") return m.mode === "ffa";
+    // view === "team": include 2v2/3v3/4v4, optionally narrowed by size
+    if (m.mode === "ffa") return false;
+    if (teamSizeFilter === "all") return true;
+    return m.mode === teamSizeFilter;
+  });
+
+  const filtered = viewFiltered;
 
   // matches are already newest-first; build stats + streaks
   const stats = new Map<string, StatRow>();
+  function ratingFor(username: string): number {
+    const p = profiles[username];
+    if (!p) return 1000;
+    return view === "ffa" ? p.rating_ffa : p.rating_team;
+  }
   // iterate oldest-first for correct streak computation, but we already have newest-first,
   // so reverse a copy for streak calc while keeping win/loss totals order-independent
   const oldestFirst = [...filtered].slice().reverse();
@@ -167,7 +238,7 @@ export default function LeaderboardPage() {
           wins: 0,
           losses: 0,
           avatar_url: profiles[username]?.avatar_url ?? null,
-          rating: profiles[username]?.rating ?? 1000,
+          rating: ratingFor(username),
           streak: 0,
         } as StatRow);
 
@@ -207,11 +278,11 @@ export default function LeaderboardPage() {
       <div className="leaderboard-container">
         <h1>Leaderboard</h1>
 
-        <div style={{ display: "flex", gap: "1.5rem", marginBottom: "1.5rem", borderBottom: "1px solid #222" }}>
-          {(["3v3", "4v4", "ffa"] as const).map((m) => (
+        <div style={{ display: "flex", gap: "1.5rem", marginBottom: "1rem", borderBottom: "1px solid #222" }}>
+          {(["team", "ffa"] as const).map((v) => (
             <button
-              key={m}
-              onClick={() => setMode(m)}
+              key={v}
+              onClick={() => setView(v)}
               style={{
                 background: "none",
                 border: "none",
@@ -221,16 +292,40 @@ export default function LeaderboardPage() {
                 textTransform: "uppercase",
                 fontSize: "0.9rem",
                 letterSpacing: "0.05em",
-                color: mode === m ? "#f5a623" : "#888",
-                fontWeight: mode === m ? 700 : 400,
-                borderBottom: mode === m ? "2px solid #f5a623" : "2px solid transparent",
+                color: view === v ? "#f5a623" : "#888",
+                fontWeight: view === v ? 700 : 400,
+                borderBottom: view === v ? "2px solid #f5a623" : "2px solid transparent",
                 marginBottom: "-1px",
               }}
             >
-              {m}
+              {v === "team" ? "Team (2v2/3v3/4v4)" : "FFA"}
             </button>
           ))}
         </div>
+
+        {view === "team" && (
+          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+            {(["all", "2v2", "3v3", "4v4"] as const).map((size) => (
+              <button
+                key={size}
+                onClick={() => setTeamSizeFilter(size)}
+                style={{
+                  background: teamSizeFilter === size ? "#f5a623" : "none",
+                  color: teamSizeFilter === size ? "#000" : "#888",
+                  border: "1px solid #f5a623",
+                  borderRadius: "3px",
+                  padding: "0.2rem 0.6rem",
+                  fontSize: "0.7rem",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  fontWeight: teamSizeFilter === size ? 700 : 400,
+                }}
+              >
+                {size === "all" ? "All sizes" : size}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Search / filter / sort controls */}
         <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
@@ -337,7 +432,7 @@ export default function LeaderboardPage() {
               })}
 
               {ranked.length === 0 && (
-                <p className="leaderboard-empty">No {mode.toUpperCase()} matches logged yet.</p>
+                <p className="leaderboard-empty">No matches logged yet in this view.</p>
               )}
             </div>
 
@@ -598,7 +693,7 @@ export default function LeaderboardPage() {
               })}
 
               {filtered.length === 0 && (
-                <p className="leaderboard-empty">No {mode.toUpperCase()} matches logged yet.</p>
+                <p className="leaderboard-empty">No matches logged yet in this view.</p>
               )}
             </div>
           </>

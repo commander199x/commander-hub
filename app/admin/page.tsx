@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import MatchForm from "@/components/MatchForm";
 import RecentMatchesAdmin from "@/components/RecentMatchesAdmin";
+import RecalculateRatings from "@/components/RecalculateRatings";
+import ResetSeasonRatings from "@/components/ResetSeasonRatings";
 import "@/app/admin.css";
 
 interface Profile {
@@ -148,6 +150,10 @@ export default function AdminPage() {
         <MatchForm allUsers={users.map((u) => ({ username: u.username }))} />
 
         <RecentMatchesAdmin />
+
+        <RecalculateRatings />
+
+        <ResetSeasonRatings />
 
         <h1>User Moderation</h1>
 

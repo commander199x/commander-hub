@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type Match = {
   id: string;
-  mode: "3v3" | "4v4" | "ffa";
+  mode: "2v2" | "3v3" | "4v4" | "ffa";
   participants: string[];
   winners: string[];
   rating_changes: Record<string, number> | null;
@@ -49,6 +49,40 @@ export default function RecentMatchesAdmin() {
   async function handleDelete(id: string) {
     const confirmed = window.confirm("Delete this match? This cannot be undone.");
     if (!confirmed) return;
+
+    const matchToDelete = matches.find((m) => m.id === id);
+    if (matchToDelete?.rating_changes) {
+      const column = matchToDelete.mode === "ffa" ? "rating_ffa" : "rating_team";
+      const usernames = Object.keys(matchToDelete.rating_changes);
+
+      const { data: currentProfiles } = await supabase
+        .from("profiles")
+        .select(`username, ${column}`)
+        .in("username", usernames);
+
+      const foundInProfiles = new Set((currentProfiles ?? []).map((p: any) => p.username));
+
+      for (const p of (currentProfiles ?? []) as any[]) {
+        const delta = matchToDelete.rating_changes[p.username] ?? 0;
+        const revertedRating = (p[column] ?? 1000) - delta;
+        await supabase.from("profiles").update({ [column]: revertedRating }).eq("username", p.username);
+      }
+
+      const guestUsernames = usernames.filter((u) => !foundInProfiles.has(u));
+      if (guestUsernames.length > 0) {
+        const { data: currentGuests } = await supabase
+          .from("guest_ratings")
+          .select(`name, ${column}`)
+          .in("name", guestUsernames);
+
+        for (const g of (currentGuests ?? []) as any[]) {
+          const delta = matchToDelete.rating_changes[g.name] ?? 0;
+          const revertedRating = (g[column] ?? 1000) - delta;
+          await supabase.from("guest_ratings").update({ [column]: revertedRating }).eq("name", g.name);
+        }
+      }
+    }
+
     await supabase.from("matches").delete().eq("id", id);
     loadMatches();
   }
