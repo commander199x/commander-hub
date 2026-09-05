@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import TankSpinner from "@/components/TankSpinner";
 
 type Match = {
   id: string;
@@ -130,7 +131,7 @@ export default function RecentMatchesAdmin() {
     loadMatches();
   }
 
-  if (loading) return <p style={{ opacity: 0.6 }}>Loading recent matches...</p>;
+  if (loading) return <TankSpinner label="Loading recent matches..." />;
 
   return (
     <div style={{ border: "1px solid #333", padding: "1rem", marginTop: "1.5rem" }}>

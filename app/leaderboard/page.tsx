@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import "@/app/leaderboard.css";
+import TankSpinner from "@/components/TankSpinner";
 
 type Match = {
   id: string;
@@ -366,7 +367,7 @@ export default function LeaderboardPage() {
         </div>
 
         {loading ? (
-          <p>Loading...</p>
+          <TankSpinner label="Loading leaderboard..." />
         ) : (
           <>
             <div className="leaderboard-table" style={{ display: "flex", flexDirection: "column" }}>

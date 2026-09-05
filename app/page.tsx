@@ -6,7 +6,9 @@ import { C, DISCORD_URL } from "@/lib/theme";
 import LiveBanner from "@/components/LiveBanner";
 import NewsFeed from "@/components/NewsFeed";
 import HomeLeaderboardPreview from "@/components/HomeLeaderboardPreview";
+import FadeIn from "@/components/FadeIn";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import "@/app/animations.css";
 
 export default function Home() {
   const { t } = useLanguage();
@@ -28,7 +30,10 @@ export default function Home() {
         <div className="absolute inset-0 opacity-40 cz-grid-bg" />
 
         <div className="relative text-center px-6">
-          <div className="flex items-center justify-center gap-2 text-xs tracking-widest uppercase mb-6" style={{ color: C.radar }}>
+          <div
+            className="cz-hero-anim flex items-center justify-center gap-2 text-xs tracking-widest uppercase mb-6"
+            style={{ color: C.radar, animationDelay: "0ms" }}
+          >
             <Radio size={13} className="cz-live" />
             <span>{t("common.fieldComms")}</span>
           </div>
@@ -36,18 +41,21 @@ export default function Home() {
           <img
             src="/images/commander-logo.png"
             alt="Commander logo"
-            className="w-32 h-32 mx-auto object-cover"
-            style={{ border: `2px solid ${C.amber}` }}
+            className="cz-hero-anim cz-logo-glow w-32 h-32 mx-auto object-cover rounded-full"
+            style={{ border: `2px solid ${C.amber}`, animationDelay: "100ms" }}
           />
 
           <h1
-            className="cz-display uppercase mt-6 leading-[0.95]"
-            style={{ fontSize: "clamp(2.6rem, 6vw, 4.5rem)", fontWeight: 700, letterSpacing: "0.01em" }}
+            className="cz-hero-anim cz-display uppercase mt-6 leading-[0.95]"
+            style={{ fontSize: "clamp(2.6rem, 6vw, 4.5rem)", fontWeight: 700, letterSpacing: "0.01em", animationDelay: "220ms" }}
           >
             {t("home.title")}
           </h1>
 
-          <p className="text-sm md:text-base mt-3 uppercase tracking-widest" style={{ color: C.muted }}>
+          <p
+            className="cz-hero-anim text-sm md:text-base mt-3 uppercase tracking-widest"
+            style={{ color: C.muted, animationDelay: "340ms" }}
+          >
             {t("home.subtitle")}
           </p>
         </div>
@@ -67,7 +75,7 @@ export default function Home() {
             href={DISCORD_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 mt-8 text-xs uppercase tracking-widest px-6 py-3"
+            className="cz-cta-hover inline-flex items-center gap-2 mt-8 text-xs uppercase tracking-widest px-6 py-3"
             style={{ background: C.amber, color: C.void, fontWeight: 600 }}
           >
             {t("home.joinOurClan")}
@@ -87,128 +95,140 @@ export default function Home() {
           </span>
         </div>
 
-        <a
-          href="/join"
-          className="cz-card group relative block p-6 mt-8"
-          style={{ background: C.panel, border: `1px solid ${C.amber}` }}
-        >
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <span className="text-[10px] uppercase tracking-widest" style={{ color: C.radar }}>
-                {t("home.recruiting")}
-              </span>
-              <h3 className="cz-display uppercase text-xl mt-1" style={{ color: C.paper, fontWeight: 600 }}>
-                {t("home.joinTeamTitle")}
-              </h3>
-              <p className="text-xs mt-2" style={{ color: C.muted }}>
-                {t("home.joinTeamDesc")}
-              </p>
-            </div>
-
-            <span
-              className="inline-flex items-center gap-2 text-xs uppercase tracking-widest px-6 py-3 shrink-0"
-              style={{ background: C.amber, color: C.void, fontWeight: 600 }}
-            >
-              {t("home.apply")}
-              <ArrowUpRight size={14} />
-            </span>
-          </div>
-        </a>
-
-        <a
-          href="/donate"
-          className="cz-card group relative block p-6 mt-4"
-          style={{ background: C.panel, border: `1px solid ${C.radar}` }}
-        >
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <span className="text-[10px] uppercase tracking-widest" style={{ color: C.radar }}>
-                {t("home.supportUs")}
-              </span>
-              <h3 className="cz-display uppercase text-xl mt-1" style={{ color: C.paper, fontWeight: 600 }}>
-                {t("home.donateTitle")}
-              </h3>
-              <p className="text-xs mt-2" style={{ color: C.muted }}>
-                {t("home.donateDesc")}
-              </p>
-            </div>
-
-            <span
-              className="inline-flex items-center gap-2 text-xs uppercase tracking-widest px-6 py-3 shrink-0"
-              style={{ border: `1px solid ${C.radar}`, color: C.radar }}
-            >
-              {t("home.donate")}
-              <ArrowUpRight size={14} />
-            </span>
-          </div>
-        </a>
-
-        <div className="mt-10">
-          <LiveBanner />
-        </div>
-
-        <HomeLeaderboardPreview />
-
-        <div className="flex items-center justify-between mt-10 mb-4">
-          <h2 className="cz-display uppercase text-2xl" style={{ fontWeight: 600 }}>
-            {t("home.latest")}
-          </h2>
-          <Link
-            href="/news"
-            className="text-xs uppercase tracking-widest"
-            style={{ color: C.amber }}
+        <FadeIn>
+          <a
+            href="/join"
+            className="cz-card cz-hover-lift group relative block p-6 mt-8"
+            style={{ background: C.panel, border: `1px solid ${C.amber}` }}
           >
-            {t("home.viewAll")}
-          </Link>
-        </div>
-
-        <NewsFeed limit={3} />
-
-        <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-14">
-          {OPS.map((op) => {
-            const Icon = op.icon;
-            return (
-              <Link
-                key={op.title}
-                href={op.href}
-                className="cz-card group relative block p-5"
-                style={{ background: C.panel, border: `1px solid ${C.line}` }}
-              >
-                {["top-2 left-2 border-t border-l", "top-2 right-2 border-t border-r", "bottom-2 left-2 border-b border-l", "bottom-2 right-2 border-b border-r"].map(
-                  (pos) => (
-                    <span
-                      key={pos}
-                      className={`cz-bracket pointer-events-none absolute w-3 h-3 ${pos} opacity-0 transition-opacity duration-300`}
-                      style={{ borderColor: C.amber }}
-                    />
-                  )
-                )}
-
-                <div className="flex items-center justify-between text-[10px] uppercase tracking-widest mb-5" style={{ color: C.muted }}>
-                  <span>{op.tag}</span>
-                </div>
-
-                <Icon size={22} style={{ color: C.amber }} />
-
-                <h3 className="text-base mt-4" style={{ color: C.paper, fontWeight: 500 }}>
-                  {op.title}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <span className="text-[10px] uppercase tracking-widest" style={{ color: C.radar }}>
+                  {t("home.recruiting")}
+                </span>
+                <h3 className="cz-display uppercase text-xl mt-1" style={{ color: C.paper, fontWeight: 600 }}>
+                  {t("home.joinTeamTitle")}
                 </h3>
-
                 <p className="text-xs mt-2" style={{ color: C.muted }}>
-                  {op.description}
+                  {t("home.joinTeamDesc")}
                 </p>
+              </div>
 
-                <div
-                  className="flex items-center justify-between mt-5 pt-3 text-xs uppercase tracking-widest"
-                  style={{ borderTop: `1px solid ${C.line}`, color: C.amber }}
+              <span
+                className="inline-flex items-center gap-2 text-xs uppercase tracking-widest px-6 py-3 shrink-0"
+                style={{ background: C.amber, color: C.void, fontWeight: 600 }}
+              >
+                {t("home.apply")}
+                <ArrowUpRight size={14} />
+              </span>
+            </div>
+          </a>
+        </FadeIn>
+
+        <FadeIn delay={80}>
+          <a
+            href="/donate"
+            className="cz-card cz-hover-lift group relative block p-6 mt-4"
+            style={{ background: C.panel, border: `1px solid ${C.radar}` }}
+          >
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <span className="text-[10px] uppercase tracking-widest" style={{ color: C.radar }}>
+                  {t("home.supportUs")}
+                </span>
+                <h3 className="cz-display uppercase text-xl mt-1" style={{ color: C.paper, fontWeight: 600 }}>
+                  {t("home.donateTitle")}
+                </h3>
+                <p className="text-xs mt-2" style={{ color: C.muted }}>
+                  {t("home.donateDesc")}
+                </p>
+              </div>
+
+              <span
+                className="inline-flex items-center gap-2 text-xs uppercase tracking-widest px-6 py-3 shrink-0"
+                style={{ border: `1px solid ${C.radar}`, color: C.radar }}
+              >
+                {t("home.donate")}
+                <ArrowUpRight size={14} />
+              </span>
+            </div>
+          </a>
+        </FadeIn>
+
+        <FadeIn delay={120}>
+          <div className="mt-10">
+            <LiveBanner />
+          </div>
+        </FadeIn>
+
+        <FadeIn delay={160}>
+          <HomeLeaderboardPreview />
+        </FadeIn>
+
+        <FadeIn>
+          <div className="flex items-center justify-between mt-10 mb-4">
+            <h2 className="cz-display uppercase text-2xl" style={{ fontWeight: 600 }}>
+              {t("home.latest")}
+            </h2>
+            <Link
+              href="/news"
+              className="text-xs uppercase tracking-widest"
+              style={{ color: C.amber }}
+            >
+              {t("home.viewAll")}
+            </Link>
+          </div>
+
+          <NewsFeed limit={3} />
+        </FadeIn>
+
+        <FadeIn>
+          <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-14">
+            {OPS.map((op) => {
+              const Icon = op.icon;
+              return (
+                <Link
+                  key={op.title}
+                  href={op.href}
+                  className="cz-card cz-hover-lift group relative block p-5"
+                  style={{ background: C.panel, border: `1px solid ${C.line}` }}
                 >
-                  <span>{t("common.enter")}</span>
-                  <ArrowUpRight size={14} />
-                </div>
-              </Link>
-            );
-          })}
-        </section>
+                  {["top-2 left-2 border-t border-l", "top-2 right-2 border-t border-r", "bottom-2 left-2 border-b border-l", "bottom-2 right-2 border-b border-r"].map(
+                    (pos) => (
+                      <span
+                        key={pos}
+                        className={`cz-bracket pointer-events-none absolute w-3 h-3 ${pos} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+                        style={{ borderColor: C.amber }}
+                      />
+                    )
+                  )}
+
+                  <div className="flex items-center justify-between text-[10px] uppercase tracking-widest mb-5" style={{ color: C.muted }}>
+                    <span>{op.tag}</span>
+                  </div>
+
+                  <Icon size={22} style={{ color: C.amber }} />
+
+                  <h3 className="text-base mt-4" style={{ color: C.paper, fontWeight: 500 }}>
+                    {op.title}
+                  </h3>
+
+                  <p className="text-xs mt-2" style={{ color: C.muted }}>
+                    {op.description}
+                  </p>
+
+                  <div
+                    className="flex items-center justify-between mt-5 pt-3 text-xs uppercase tracking-widest"
+                    style={{ borderTop: `1px solid ${C.line}`, color: C.amber }}
+                  >
+                    <span>{t("common.enter")}</span>
+                    <ArrowUpRight size={14} />
+                  </div>
+                </Link>
+              );
+            })}
+          </section>
+        </FadeIn>
       </div>
     </main>
   );

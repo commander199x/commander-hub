@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import TankSpinner from "@/components/TankSpinner";
 
 type Match = {
   id: string;
@@ -55,7 +56,7 @@ export default function PlayerMatchHistory({ username }: { username: string }) {
   }, [supabase, username]);
 
   if (loading) {
-    return <p style={{ opacity: 0.6, fontSize: "0.85rem" }}>Loading match history...</p>;
+    return <TankSpinner label="Loading match history..." />;
   }
 
   const wins = matches.filter((m) => m.winners.includes(username)).length;

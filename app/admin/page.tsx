@@ -7,6 +7,7 @@ import MatchForm from "@/components/MatchForm";
 import RecentMatchesAdmin from "@/components/RecentMatchesAdmin";
 import RecalculateRatings from "@/components/RecalculateRatings";
 import ResetSeasonRatings from "@/components/ResetSeasonRatings";
+import TankSpinner from "@/components/TankSpinner";
 import "@/app/admin.css";
 
 interface Profile {
@@ -135,7 +136,11 @@ export default function AdminPage() {
   }
 
   if (loading) {
-    return <main className="admin-page">Loading...</main>;
+    return (
+      <main className="admin-page" style={{ display: "flex", justifyContent: "center", padding: "3rem" }}>
+        <TankSpinner label="Loading admin panel..." />
+      </main>
+    );
   }
 
   if (!authorized) return null;
