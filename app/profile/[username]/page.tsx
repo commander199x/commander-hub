@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import PlayerMatchHistory from "@/components/PlayerMatchHistory";
 import "@/app/auth.css";
 
 interface PageProps {
@@ -50,6 +51,11 @@ export default async function ProfilePage({ params }: PageProps) {
             Edit profile
           </Link>
         )}
+      </div>
+
+      <div style={{ maxWidth: "700px", margin: "1.5rem auto 0" }}>
+        <h2 style={{ marginBottom: "0.75rem" }}>Match History</h2>
+        <PlayerMatchHistory username={profile.username} />
       </div>
     </main>
   );

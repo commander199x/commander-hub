@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { computeTeamMatchDeltas, computeFfaMatchDeltas, DEFAULT_RATING } from "@/lib/elo";
 
@@ -34,16 +34,66 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
   const [guestPlayers, setGuestPlayers] = useState<string[]>([]);
   const [guestNameInput, setGuestNameInput] = useState("");
 
+  // Every guest name ever used before, fetched so we can offer autocomplete
+  // and catch near-duplicate typos (different case/spacing) before they
+  // create a brand new "ghost" guest with a split history.
+  const [knownGuestNames, setKnownGuestNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function loadKnownGuests() {
+      const { data } = await supabase.from("guest_ratings").select("name");
+      setKnownGuestNames((data ?? []).map((g) => g.name));
+    }
+    loadKnownGuests();
+  }, [supabase]);
+
   const registeredNames = allUsers.map((u) => u.username);
   const allPlayerNames = [...registeredNames, ...guestPlayers];
+
+  function normalize(name: string): string {
+    return name.trim().toLowerCase().replace(/\s+/g, " ");
+  }
 
   function addGuestPlayer() {
     const name = guestNameInput.trim();
     if (!name) return;
-    if (allPlayerNames.includes(name)) {
-      setMessage(`"${name}" is already in the player list.`);
+
+    if (allPlayerNames.some((n) => normalize(n) === normalize(name))) {
+      setMessage(`"${name}" is already in the player list for this match.`);
       return;
     }
+
+    // Check for a near-match against every registered user and every guest
+    // ever used, to catch typos before they fragment someone's history.
+    const allKnownNames = [...registeredNames, ...knownGuestNames];
+    const exactExisting = allKnownNames.find((n) => normalize(n) === normalize(name));
+
+    if (exactExisting && exactExisting !== name) {
+      // Same name, different case/spacing — auto-correct to the existing
+      // spelling instead of creating a near-duplicate.
+      setGuestPlayers((prev) => [...prev, exactExisting]);
+      setGuestNameInput("");
+      setMessage(`Matched existing player "${exactExisting}" (adjusted spelling/case to match).`);
+      return;
+    }
+
+    if (!exactExisting) {
+      const similar = allKnownNames.find(
+        (n) => normalize(n).includes(normalize(name)) || normalize(name).includes(normalize(n))
+      );
+      if (similar) {
+        const confirmUse = window.confirm(
+          `A player named "${similar}" already exists. Did you mean them, instead of creating "${name}" as a new guest?\n\nOK = use "${similar}"\nCancel = add "${name}" as a brand new guest`
+        );
+        if (confirmUse) {
+          setGuestPlayers((prev) => [...prev, similar]);
+          setGuestNameInput("");
+          setMessage(null);
+          return;
+        }
+      }
+    }
+
     setGuestPlayers((prev) => [...prev, name]);
     setGuestNameInput("");
     setMessage(null);
@@ -305,9 +355,14 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
         <p style={{ fontSize: "0.8rem", opacity: 0.7, marginBottom: "0.4rem" }}>
           Add a guest player (no site account) for this match only:
         </p>
+        <p style={{ fontSize: "0.75rem", opacity: 0.5, marginBottom: "0.4rem" }}>
+          Start typing to see previously used guest names — pick from the list instead of
+          retyping to avoid creating a duplicate with a typo.
+        </p>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
           <input
             type="text"
+            list="known-guest-names"
             placeholder="Guest name"
             value={guestNameInput}
             onChange={(e) => setGuestNameInput(e.target.value)}
@@ -325,6 +380,11 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
               fontFamily: "inherit",
             }}
           />
+          <datalist id="known-guest-names">
+            {knownGuestNames.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
           <button
             type="button"
             onClick={addGuestPlayer}

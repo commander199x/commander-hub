@@ -17,6 +17,7 @@ export default function Header() {
 
   const [username, setUsername] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
@@ -28,15 +29,17 @@ export default function Header() {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("username, avatar_url")
+          .select("username, avatar_url, is_owner")
           .eq("id", user.id)
           .single();
 
         setUsername(profile?.username ?? null);
         setAvatarUrl(profile?.avatar_url ?? null);
+        setIsOwner(profile?.is_owner ?? false);
       } else {
         setUsername(null);
         setAvatarUrl(null);
+        setIsOwner(false);
       }
 
       setAuthLoading(false);
@@ -109,6 +112,11 @@ export default function Header() {
                     }}
                   />
                   {username.toUpperCase()}
+                  {isOwner && (
+                    <span style={{ color: "#ff4d6d", border: "1px solid #ff4d6d", fontSize: "0.6rem", padding: "0.05rem 0.3rem", letterSpacing: "0.05em" }}>
+                      OWNER
+                    </span>
+                  )}
                 </Link>
                 <NotificationBell />
                 <button
@@ -192,6 +200,11 @@ export default function Header() {
                     }}
                   />
                   {username.toUpperCase()}
+                  {isOwner && (
+                    <span style={{ color: "#ff4d6d", border: "1px solid #ff4d6d", fontSize: "0.6rem", padding: "0.05rem 0.3rem", letterSpacing: "0.05em" }}>
+                      OWNER
+                    </span>
+                  )}
                 </Link>
                 <button
                   onClick={handleSignOut}
