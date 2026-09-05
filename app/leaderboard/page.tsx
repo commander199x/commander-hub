@@ -43,7 +43,7 @@ export default function LeaderboardPage() {
 
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("wins");
+  const [sortKey, setSortKey] = useState<SortKey>("rating");
 
   const [editingReplayId, setEditingReplayId] = useState<string | null>(null);
   const [editReplayLink, setEditReplayLink] = useState("");
@@ -262,15 +262,16 @@ export default function LeaderboardPage() {
   }
 
   ranked.sort((a, b) => {
-    if (sortKey === "wins") return b.wins - a.wins;
-    if (sortKey === "rating") return b.rating - a.rating;
-    if (sortKey === "matches") return b.wins + b.losses - (a.wins + a.losses);
+    if (sortKey === "wins") return b.wins - a.wins || a.username.localeCompare(b.username);
+    if (sortKey === "rating") return b.rating - a.rating || a.username.localeCompare(b.username);
+    if (sortKey === "matches")
+      return b.wins + b.losses - (a.wins + a.losses) || a.username.localeCompare(b.username);
     // winrate
     const aTotal = a.wins + a.losses;
     const bTotal = b.wins + b.losses;
     const aRate = aTotal > 0 ? a.wins / aTotal : 0;
     const bRate = bTotal > 0 ? b.wins / bTotal : 0;
-    return bRate - aRate;
+    return bRate - aRate || a.username.localeCompare(b.username);
   });
 
   return (
@@ -390,6 +391,23 @@ export default function LeaderboardPage() {
               {ranked.map((p, i) => {
                 const total = p.wins + p.losses;
                 const winRate = total > 0 ? Math.round((p.wins / total) * 100) : 0;
+
+                const podiumStyles = [
+                  {
+                    background: "linear-gradient(90deg, rgba(245,166,35,0.14), rgba(245,166,35,0.02))",
+                    borderLeft: "3px solid #f5a623",
+                  },
+                  {
+                    background: "linear-gradient(90deg, rgba(192,192,192,0.12), rgba(192,192,192,0.02))",
+                    borderLeft: "3px solid #c0c0c0",
+                  },
+                  {
+                    background: "linear-gradient(90deg, rgba(205,127,50,0.12), rgba(205,127,50,0.02))",
+                    borderLeft: "3px solid #cd7f32",
+                  },
+                ];
+                const medal = ["🥇", "🥈", "🥉"];
+
                 return (
                   <Link
                     key={p.username}
@@ -400,11 +418,15 @@ export default function LeaderboardPage() {
                       gridTemplateColumns: "40px 1fr 70px 50px 50px 70px",
                       alignItems: "center",
                       gap: "0.5rem",
-                      padding: "0.6rem 0.75rem",
+                      padding: i < 3 ? "0.8rem 0.75rem" : "0.6rem 0.75rem",
+                      ...(i < 3 ? podiumStyles[i] : {}),
                     }}
                   >
-                    <span className="lb-rank" style={{ whiteSpace: "nowrap" }}>
-                      {i === 0 ? "👑" : i + 1}
+                    <span
+                      className="lb-rank"
+                      style={{ whiteSpace: "nowrap", fontSize: i < 3 ? "1.1rem" : "1rem" }}
+                    >
+                      {i < 3 ? medal[i] : i + 1}
                     </span>
                     <span
                       className="lb-player"
@@ -414,16 +436,40 @@ export default function LeaderboardPage() {
                         src={p.avatar_url || "/default-avatar.svg"}
                         alt={p.username}
                         className="lb-avatar"
-                        style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                        style={{
+                          width: i < 3 ? "34px" : "28px",
+                          height: i < 3 ? "34px" : "28px",
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                          flexShrink: 0,
+                          border: i < 3 ? `2px solid ${["#f5a623", "#c0c0c0", "#cd7f32"][i]}` : "none",
+                        }}
                       />
-                      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <span
+                        style={{
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          fontWeight: i < 3 ? 700 : 400,
+                        }}
+                      >
                         {p.username}
                       </span>
                       {p.streak >= 3 && (
                         <span style={{ fontSize: "0.75rem", color: "#f97316", flexShrink: 0 }}>🔥{p.streak}</span>
                       )}
                     </span>
-                    <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.rating}</span>
+                    <span
+                      className="lb-stat"
+                      style={{
+                        whiteSpace: "nowrap",
+                        textAlign: "right",
+                        fontWeight: i < 3 ? 700 : 400,
+                        color: i < 3 ? "#f5a623" : "inherit",
+                      }}
+                    >
+                      {p.rating}
+                    </span>
                     <span className="lb-stat lb-wins" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.wins}</span>
                     <span className="lb-stat lb-losses" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.losses}</span>
                     <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{winRate}%</span>

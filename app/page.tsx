@@ -5,6 +5,7 @@ import { Film, FolderOpen, Video, Trophy, Radio, ArrowUpRight } from "lucide-rea
 import { C, DISCORD_URL } from "@/lib/theme";
 import LiveBanner from "@/components/LiveBanner";
 import NewsFeed from "@/components/NewsFeed";
+import HomeLeaderboardPreview from "@/components/HomeLeaderboardPreview";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export default function Home() {
@@ -145,6 +146,8 @@ export default function Home() {
         <div className="mt-10">
           <LiveBanner />
         </div>
+
+        <HomeLeaderboardPreview />
 
         <div className="flex items-center justify-between mt-10 mb-4">
           <h2 className="cz-display uppercase text-2xl" style={{ fontWeight: 600 }}>
