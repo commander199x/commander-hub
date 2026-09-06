@@ -17,6 +17,8 @@ export const translations = {
       watchTransmission: "Watch transmission",
       getOnDiscord: "Get on Discord",
       downloadPackage: "Download package",
+      signIn: "Sign in",
+      signOut: "Sign out",
     },
     nav: {
       home: "Home",
@@ -175,6 +177,8 @@ export const translations = {
       watchTransmission: "مشاهدة البث",
       getOnDiscord: "احصل عليه من ديسكورد",
       downloadPackage: "تحميل الحزمة",
+      signIn: "تسجيل الدخول",
+      signOut: "تسجيل الخروج",
     },
     nav: {
       home: "الرئيسية",

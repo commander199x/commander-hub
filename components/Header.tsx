@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogIn } from "lucide-react";
 import { C, DISCORD_URL } from "@/lib/theme";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { createClient } from "@/lib/supabase/client";
 import NotificationBell from "@/components/NotificationBell";
 import "@/app/notifications.css";
+import "@/app/animations.css";
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -124,16 +125,21 @@ export default function Header() {
                   className="cz-nav-link"
                   style={{ color: C.muted, background: "none", border: "none", cursor: "pointer" }}
                 >
-                  SIGN OUT
+                  {t("common.signOut")}
                 </button>
               </>
             ) : (
               <Link
                 href="/login"
-                className="cz-nav-link"
-                style={{ color: C.paper }}
+                className="cz-cta-hover cz-logo-glow inline-flex items-center gap-1.5 text-xs uppercase tracking-widest px-4 py-2"
+                style={{
+                  background: C.amber,
+                  color: C.void,
+                  fontWeight: 700,
+                }}
               >
-                SIGN IN
+                <LogIn size={13} />
+                {t("common.signIn")}
               </Link>
             )
           )}
@@ -211,17 +217,22 @@ export default function Header() {
                   className="py-3 text-left"
                   style={{ color: C.muted, background: "none", border: "none", borderBottom: `1px solid ${C.line}` }}
                 >
-                  SIGN OUT
+                  {t("common.signOut")}
                 </button>
               </>
             ) : (
               <Link
                 href="/login"
                 onClick={() => setOpen(false)}
-                className="py-3"
-                style={{ color: C.paper, borderBottom: `1px solid ${C.line}` }}
+                className="cz-logo-glow inline-flex items-center justify-center gap-1.5 py-3 text-center mt-2"
+                style={{
+                  background: C.amber,
+                  color: C.void,
+                  fontWeight: 700,
+                }}
               >
-                SIGN IN
+                <LogIn size={13} />
+                {t("common.signIn")}
               </Link>
             )
           )}

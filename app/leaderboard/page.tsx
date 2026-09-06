@@ -275,6 +275,13 @@ export default function LeaderboardPage() {
     return bRate - aRate || a.username.localeCompare(b.username);
   });
 
+  // Players need a minimum number of matches to hold an official rank —
+  // otherwise a lucky 2-0 streak could sit at #1 forever while active
+  // players who keep playing (and inevitably take some losses) rank below.
+  const MIN_MATCHES_FOR_RANK = 3;
+  const qualifiedRanked = ranked.filter((p) => p.wins + p.losses >= MIN_MATCHES_FOR_RANK);
+  const provisionalRanked = ranked.filter((p) => p.wins + p.losses < MIN_MATCHES_FOR_RANK);
+
   return (
     <main className="leaderboard-page">
       <div className="leaderboard-container">
@@ -389,7 +396,7 @@ export default function LeaderboardPage() {
                 <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>Win %</span>
               </div>
 
-              {ranked.map((p, i) => {
+              {qualifiedRanked.map((p, i) => {
                 const total = p.wins + p.losses;
                 const winRate = total > 0 ? Math.round((p.wins / total) * 100) : 0;
 
@@ -478,10 +485,62 @@ export default function LeaderboardPage() {
                 );
               })}
 
-              {ranked.length === 0 && (
-                <p className="leaderboard-empty">No matches logged yet in this view.</p>
+              {qualifiedRanked.length === 0 && (
+                <p className="leaderboard-empty">
+                  No players have reached {MIN_MATCHES_FOR_RANK} matches yet in this view.
+                </p>
               )}
             </div>
+
+            {provisionalRanked.length > 0 && (
+              <div style={{ marginTop: "1.5rem" }}>
+                <p style={{ fontSize: "0.75rem", opacity: 0.6, marginBottom: "0.5rem" }}>
+                  Provisional — needs {MIN_MATCHES_FOR_RANK} matches to hold an official rank
+                </p>
+                <div className="leaderboard-table" style={{ display: "flex", flexDirection: "column", opacity: 0.7 }}>
+                  {provisionalRanked.map((p) => {
+                    const total = p.wins + p.losses;
+                    const winRate = total > 0 ? Math.round((p.wins / total) * 100) : 0;
+                    return (
+                      <Link
+                        key={p.username}
+                        href={`/profile/${p.username}`}
+                        className="leaderboard-row"
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "40px 1fr 70px 50px 50px 70px",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          padding: "0.5rem 0.75rem",
+                        }}
+                      >
+                        <span className="lb-rank" style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>
+                          {total}/{MIN_MATCHES_FOR_RANK}
+                        </span>
+                        <span
+                          className="lb-player"
+                          style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0, overflow: "hidden" }}
+                        >
+                          <img
+                            src={p.avatar_url || "/default-avatar.svg"}
+                            alt={p.username}
+                            className="lb-avatar"
+                            style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                          />
+                          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: "0.9rem" }}>
+                            {p.username}
+                          </span>
+                        </span>
+                        <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.rating}</span>
+                        <span className="lb-stat lb-wins" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.wins}</span>
+                        <span className="lb-stat lb-losses" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.losses}</span>
+                        <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{winRate}%</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <h2 style={{ marginTop: "2rem" }}>Recent Matches</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
