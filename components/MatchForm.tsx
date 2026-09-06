@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { computeTeamMatchDeltas, computeFfaMatchDeltas, DEFAULT_RATING } from "@/lib/elo";
+import { notifyMatchResult, getTopThreeUsernames, notifyTopThreeChanges, checkAndNotifyNewTournament } from "@/lib/notifications";
 
 type Profile = { username: string };
 type Mode = "2v2" | "3v3" | "4v4" | "ffa";
@@ -266,6 +267,17 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
       const deltas = computeTeamMatchDeltas(currentRatings, winners, losers);
       const replayUrl = await resolveReplayUrl();
 
+      // Snapshot the top 3 before this match's rating changes are applied,
+      // so we can detect who entered/left after.
+      const topThreeColumn = ratingColumnFor(mode);
+      const beforeTop3 = await getTopThreeUsernames(supabase, topThreeColumn);
+
+      // Check for a new tournament BEFORE inserting, so the "does this
+      // tournament already exist" check doesn't just find this match itself.
+      if (tournamentName.trim()) {
+        await checkAndNotifyNewTournament(supabase, tournamentName.trim());
+      }
+
       const { error } = await supabase.from("matches").insert({
         mode,
         participants: allParticipants,
@@ -278,7 +290,18 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
         replay_url: replayUrl,
       });
 
-      if (!error) await applyRatingChanges(deltas, currentRatings);
+      if (!error) {
+        await applyRatingChanges(deltas, currentRatings);
+
+        const newRatings: Record<string, number> = {};
+        for (const username of Object.keys(deltas)) {
+          newRatings[username] = (currentRatings[username] ?? DEFAULT_RATING) + deltas[username];
+        }
+        await notifyMatchResult(supabase, mode, deltas, winners, newRatings);
+
+        const afterTop3 = await getTopThreeUsernames(supabase, topThreeColumn);
+        await notifyTopThreeChanges(supabase, isTeamMode ? "Team" : "FFA", beforeTop3, afterTop3);
+      }
       setSubmitting(false);
 
       if (error) setMessage(`Error: ${error.message}`);
@@ -305,6 +328,13 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
     const deltas = computeFfaMatchDeltas(currentRatings, winner, losers);
     const replayUrl = await resolveReplayUrl();
 
+    const topThreeColumn = ratingColumnFor(mode);
+    const beforeTop3 = await getTopThreeUsernames(supabase, topThreeColumn);
+
+    if (tournamentName.trim()) {
+      await checkAndNotifyNewTournament(supabase, tournamentName.trim());
+    }
+
     const { error } = await supabase.from("matches").insert({
       mode,
       participants,
@@ -317,7 +347,18 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
       replay_url: replayUrl,
     });
 
-    if (!error) await applyRatingChanges(deltas, currentRatings);
+    if (!error) {
+      await applyRatingChanges(deltas, currentRatings);
+
+      const newRatings: Record<string, number> = {};
+      for (const username of Object.keys(deltas)) {
+        newRatings[username] = (currentRatings[username] ?? DEFAULT_RATING) + deltas[username];
+      }
+      await notifyMatchResult(supabase, mode, deltas, [winner], newRatings);
+
+      const afterTop3 = await getTopThreeUsernames(supabase, topThreeColumn);
+      await notifyTopThreeChanges(supabase, "FFA", beforeTop3, afterTop3);
+    }
     setSubmitting(false);
 
     if (error) setMessage(`Error: ${error.message}`);
