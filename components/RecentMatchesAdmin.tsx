@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { logAdminAction } from "@/lib/auditLog";
 import TankSpinner from "@/components/TankSpinner";
 
 type Match = {
@@ -21,7 +22,7 @@ type Match = {
  * Shows the last 15 matches across all modes, with Delete and
  * Add/attach-replay controls, so admins don't have to leave /admin.
  */
-export default function RecentMatchesAdmin() {
+export default function RecentMatchesAdmin({ adminUsername = "unknown" }: { adminUsername?: string }) {
   const supabase = createClient();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +86,12 @@ export default function RecentMatchesAdmin() {
     }
 
     await supabase.from("matches").delete().eq("id", id);
+    await logAdminAction(supabase, adminUsername, "delete_match", {
+      match_id: id,
+      mode: matchToDelete?.mode,
+      participants: matchToDelete?.participants,
+      winners: matchToDelete?.winners,
+    });
     loadMatches();
   }
 

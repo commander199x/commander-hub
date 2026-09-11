@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { computeTeamMatchDeltas, computeFfaMatchDeltas, DEFAULT_RATING } from "@/lib/elo";
+import { logAdminAction } from "@/lib/auditLog";
 
 type Match = {
   id: string;
@@ -22,7 +23,7 @@ type Match = {
  * history displays are untouched) — it only fixes the final profiles.rating
  * numbers going forward.
  */
-export default function RecalculateRatings() {
+export default function RecalculateRatings({ adminUsername = "unknown" }: { adminUsername?: string }) {
   const supabase = createClient();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -90,6 +91,10 @@ export default function RecalculateRatings() {
 
     setRunning(false);
     setResult(`Done. Recalculated ratings for ${updated} player(s) based on ${matchData.length} match(es).`);
+    await logAdminAction(supabase, adminUsername, "recalculate_all_ratings", {
+      players_updated: updated,
+      matches_processed: matchData.length,
+    });
   }
 
   return (

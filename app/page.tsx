@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Film, FolderOpen, Video, Trophy, Radio, ArrowUpRight } from "lucide-react";
+import { Film, FolderOpen, Video, Trophy, Radio, ArrowUpRight, Info, Mail } from "lucide-react";
 import { C, DISCORD_URL } from "@/lib/theme";
 import LiveBanner from "@/components/LiveBanner";
 import NewsFeed from "@/components/NewsFeed";
@@ -18,6 +18,8 @@ export default function Home() {
     { icon: FolderOpen, title: t("home.opsDownloadsTitle"), description: t("home.opsDownloadsDesc"), href: "/downloads", tag: t("home.opsDownloadsTag") },
     { icon: Video, title: t("home.opsVideosTitle"), description: t("home.opsVideosDesc"), href: "/videos", tag: t("home.opsVideosTag") },
     { icon: Trophy, title: t("home.opsTournamentsTitle"), description: t("home.opsTournamentsDesc"), href: "/tournaments", tag: t("home.opsTournamentsTag") },
+    { icon: Info, title: t("home.opsAboutTitle"), description: t("home.opsAboutDesc"), href: "/about", tag: t("home.opsAboutTag") },
+    { icon: Mail, title: t("home.opsContactTitle"), description: t("home.opsContactDesc"), href: "/contact", tag: t("home.opsContactTag") },
   ];
 
   return (
@@ -183,7 +185,7 @@ export default function Home() {
         </FadeIn>
 
         <FadeIn>
-          <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-14">
+          <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-14">
             {OPS.map((op) => {
               const Icon = op.icon;
               return (

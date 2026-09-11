@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_RATING } from "@/lib/elo";
+import { logAdminAction } from "@/lib/auditLog";
 
 /**
  * Fresh-season reset: sets EVERY player's rating_team and rating_ffa back
@@ -12,7 +13,7 @@ import { DEFAULT_RATING } from "@/lib/elo";
  * Match history itself (the matches table, win/loss records, replays,
  * tournament tags) is untouched — only the rating numbers reset.
  */
-export default function ResetSeasonRatings() {
+export default function ResetSeasonRatings({ adminUsername = "unknown" }: { adminUsername?: string }) {
   const supabase = createClient();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -59,6 +60,7 @@ export default function ResetSeasonRatings() {
 
     setRunning(false);
     setResult(`Done. Reset ratings to 1000 for ${updated} player(s).`);
+    await logAdminAction(supabase, adminUsername, "reset_season_ratings", { players_reset: updated });
   }
 
   return (

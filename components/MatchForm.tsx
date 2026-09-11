@@ -22,6 +22,7 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
   const [notes, setNotes] = useState("");
   const [tournamentName, setTournamentName] = useState("");
   const [round, setRound] = useState("");
+  const [map, setMap] = useState("");
   const [matchDate, setMatchDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [replayLink, setReplayLink] = useState("");
   const [replayFile, setReplayFile] = useState<File | null>(null);
@@ -126,6 +127,7 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
     setNotes("");
     setTournamentName("");
     setRound("");
+    setMap("");
     setMatchDate(new Date().toISOString().slice(0, 10));
     setReplayLink("");
     setReplayFile(null);
@@ -285,6 +287,7 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
         notes: notes || null,
         tournament_name: tournamentName || null,
         round: round || null,
+        map: map || null,
         rating_changes: deltas,
         created_at: getMatchTimestamp(),
         replay_url: replayUrl,
@@ -342,6 +345,7 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
       notes: notes || null,
       tournament_name: tournamentName || null,
       round: round || null,
+      map: map || null,
       rating_changes: deltas,
       created_at: getMatchTimestamp(),
       replay_url: replayUrl,
@@ -623,6 +627,23 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
             }}
           />
         </div>
+      </div>
+
+      <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+        <input
+          type="text"
+          placeholder="Map name (optional, e.g. Mountain Mayhem v2)"
+          value={map}
+          onChange={(e) => setMap(e.target.value)}
+          style={{
+            flex: "1 1 200px",
+            background: "#131313",
+            border: "1px solid #333",
+            color: "#eee",
+            padding: "0.4rem 0.6rem",
+            fontFamily: "inherit",
+          }}
+        />
       </div>
 
       <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>

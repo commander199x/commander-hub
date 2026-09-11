@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import "@/app/leaderboard.css";
 import TankSpinner from "@/components/TankSpinner";
+import { logAdminAction } from "@/lib/auditLog";
 
 type Match = {
   id: string;
@@ -16,6 +17,7 @@ type Match = {
   round: string | null;
   rating_changes: Record<string, number> | null;
   replay_url: string | null;
+  map: string | null;
   created_at: string;
 };
 
@@ -25,7 +27,7 @@ type StatRow = {
   losses: number;
   avatar_url: string | null;
   rating: number;
-  streak: number; // positive = win streak, negative = loss streak
+  streak: number;
 };
 
 type SortKey = "wins" | "winrate" | "rating" | "matches";
@@ -41,10 +43,13 @@ export default function LeaderboardPage() {
   >({});
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminUsername, setAdminUsername] = useState<string>("unknown");
 
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [sortKey, setSortKey] = useState<SortKey>("rating");
+  const [matchesPage, setMatchesPage] = useState(1);
+  const MATCHES_PAGE_SIZE = 10;
 
   const [editingReplayId, setEditingReplayId] = useState<string | null>(null);
   const [editReplayLink, setEditReplayLink] = useState("");
@@ -74,8 +79,6 @@ export default function LeaderboardPage() {
       };
     }
 
-    // Merge in guest ratings (players with no site account) so their
-    // rating displays correctly too, not just the 1000 default.
     const { data: guestData } = await supabase.from("guest_ratings").select("name, rating_team, rating_ffa");
     for (const g of guestData ?? []) {
       profileMap[g.name] = {
@@ -93,10 +96,11 @@ export default function LeaderboardPage() {
     if (user) {
       const { data: myProfile } = await supabase
         .from("profiles")
-        .select("is_admin")
+        .select("is_admin, username")
         .eq("id", user.id)
         .single();
       setIsAdmin(!!myProfile?.is_admin);
+      setAdminUsername(myProfile?.username ?? "unknown");
     } else {
       setIsAdmin(false);
     }
@@ -113,8 +117,6 @@ export default function LeaderboardPage() {
     const confirmed = window.confirm("Delete this match? This cannot be undone.");
     if (!confirmed) return;
 
-    // Reverse this match's rating changes before deleting it, so ratings
-    // stay in sync with actual match history instead of drifting.
     const matchToDelete = matches.find((m) => m.id === id);
     if (matchToDelete?.rating_changes) {
       const column = matchToDelete.mode === "ffa" ? "rating_ffa" : "rating_team";
@@ -149,7 +151,34 @@ export default function LeaderboardPage() {
     }
 
     await supabase.from("matches").delete().eq("id", id);
+    await logAdminAction(supabase, adminUsername, "delete_match", {
+      match_id: id,
+      mode: matchToDelete?.mode,
+      participants: matchToDelete?.participants,
+      winners: matchToDelete?.winners,
+    });
     loadData();
+  }
+
+  async function handleReportMatch(id: string) {
+    const reason = window.prompt("Why are you reporting this match? (e.g. wrong winner, suspected cheating)");
+    if (!reason || !reason.trim()) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const { error } = await supabase.from("match_reports").insert({
+      match_id: id,
+      reported_by: user?.id ?? null,
+      reason: reason.trim(),
+    });
+
+    if (error) {
+      alert(`Failed to submit report: ${error.message}`);
+    } else {
+      alert("Report submitted. An admin will review this match.");
+    }
   }
 
   function startEditingReplay(matchId: string) {
@@ -211,7 +240,6 @@ export default function LeaderboardPage() {
 
   const viewFiltered = dateFiltered.filter((m) => {
     if (view === "ffa") return m.mode === "ffa";
-    // view === "team": include 2v2/3v3/4v4, optionally narrowed by size
     if (m.mode === "ffa") return false;
     if (teamSizeFilter === "all") return true;
     return m.mode === teamSizeFilter;
@@ -219,15 +247,24 @@ export default function LeaderboardPage() {
 
   const filtered = viewFiltered;
 
-  // matches are already newest-first; build stats + streaks
+  function timeAgo(dateStr: string): string {
+    const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"} ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
+    return new Date(dateStr).toLocaleDateString();
+  }
+
   const stats = new Map<string, StatRow>();
   function ratingFor(username: string): number {
     const p = profiles[username];
     if (!p) return 1000;
     return view === "ffa" ? p.rating_ffa : p.rating_team;
   }
-  // iterate oldest-first for correct streak computation, but we already have newest-first,
-  // so reverse a copy for streak calc while keeping win/loss totals order-independent
   const oldestFirst = [...filtered].slice().reverse();
 
   for (const m of oldestFirst) {
@@ -267,7 +304,6 @@ export default function LeaderboardPage() {
     if (sortKey === "rating") return b.rating - a.rating || a.username.localeCompare(b.username);
     if (sortKey === "matches")
       return b.wins + b.losses - (a.wins + a.losses) || a.username.localeCompare(b.username);
-    // winrate
     const aTotal = a.wins + a.losses;
     const bTotal = b.wins + b.losses;
     const aRate = aTotal > 0 ? a.wins / aTotal : 0;
@@ -275,9 +311,6 @@ export default function LeaderboardPage() {
     return bRate - aRate || a.username.localeCompare(b.username);
   });
 
-  // Players need a minimum number of matches to hold an official rank —
-  // otherwise a lucky 2-0 streak could sit at #1 forever while active
-  // players who keep playing (and inevitably take some losses) rank below.
   const MIN_MATCHES_FOR_RANK = 3;
   const qualifiedRanked = ranked.filter((p) => p.wins + p.losses >= MIN_MATCHES_FOR_RANK);
   const provisionalRanked = ranked.filter((p) => p.wins + p.losses < MIN_MATCHES_FOR_RANK);
@@ -291,7 +324,7 @@ export default function LeaderboardPage() {
           {(["team", "ffa"] as const).map((v) => (
             <button
               key={v}
-              onClick={() => setView(v)}
+              onClick={() => { setView(v); setMatchesPage(1); }}
               style={{
                 background: "none",
                 border: "none",
@@ -317,7 +350,7 @@ export default function LeaderboardPage() {
             {(["all", "2v2", "3v3", "4v4"] as const).map((size) => (
               <button
                 key={size}
-                onClick={() => setTeamSizeFilter(size)}
+                onClick={() => { setTeamSizeFilter(size); setMatchesPage(1); }}
                 style={{
                   background: teamSizeFilter === size ? "#f5a623" : "none",
                   color: teamSizeFilter === size ? "#000" : "#888",
@@ -336,7 +369,6 @@ export default function LeaderboardPage() {
           </div>
         )}
 
-        {/* Search / filter / sort controls */}
         <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
           <input
             type="text"
@@ -354,7 +386,7 @@ export default function LeaderboardPage() {
           />
           <select
             value={dateRange}
-            onChange={(e) => setDateRange(e.target.value as DateRange)}
+            onChange={(e) => { setDateRange(e.target.value as DateRange); setMatchesPage(1); }}
             style={{ background: "#131313", border: "1px solid #333", color: "#f5a623", padding: "0.4rem 0.6rem", fontFamily: "inherit" }}
           >
             <option value="all">All time</option>
@@ -466,6 +498,37 @@ export default function LeaderboardPage() {
                       {p.streak >= 3 && (
                         <span style={{ fontSize: "0.75rem", color: "#f97316", flexShrink: 0 }}>🔥{p.streak}</span>
                       )}
+                      {total >= 30 ? (
+                        <span
+                          title={`${total} matches played`}
+                          style={{
+                            fontSize: "0.65rem",
+                            color: "#c084fc",
+                            border: "1px solid #c084fc",
+                            borderRadius: "3px",
+                            padding: "0.05rem 0.35rem",
+                            flexShrink: 0,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          🎖️ Veteran
+                        </span>
+                      ) : total >= 15 ? (
+                        <span
+                          title={`${total} matches played`}
+                          style={{
+                            fontSize: "0.65rem",
+                            color: "#60a5fa",
+                            border: "1px solid #60a5fa",
+                            borderRadius: "3px",
+                            padding: "0.05rem 0.35rem",
+                            flexShrink: 0,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          ⚔️ Active
+                        </span>
+                      ) : null}
                     </span>
                     <span
                       className="lb-stat"
@@ -543,70 +606,168 @@ export default function LeaderboardPage() {
             )}
 
             <h2 style={{ marginTop: "2rem" }}>Recent Matches</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-              {filtered.slice(0, 20).map((m) => {
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "32px 1fr 1fr 140px auto auto auto auto",
+                alignItems: "center",
+                gap: "1rem",
+                padding: "0.5rem 1rem",
+                fontSize: "0.7rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                color: "#666",
+                borderBottom: "1px solid #222",
+                marginBottom: "0.4rem",
+                width: "100%",
+                boxSizing: "border-box",
+              }}
+            >
+              <span>#</span>
+              <span>Teams</span>
+              <span></span>
+              <span>Map</span>
+              <span style={{ textAlign: "center" }}>Type</span>
+              <span style={{ textAlign: "right" }}>Time</span>
+              <span style={{ textAlign: "center" }}>Replay</span>
+              <span style={{ textAlign: "center" }}>Report</span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", width: "100%" }}>
+              {filtered.slice((matchesPage - 1) * MATCHES_PAGE_SIZE, matchesPage * MATCHES_PAGE_SIZE).map((m, idx) => {
                 const losers = m.participants.filter((p) => !m.winners.includes(p));
+                const rowNumber = (matchesPage - 1) * MATCHES_PAGE_SIZE + idx + 1;
+
+                const renderPlayer = (username: string, won: boolean) => (
+                  <div key={username} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <img
+                      src={profiles[username]?.avatar_url || "/default-avatar.svg"}
+                      alt={username}
+                      style={{ width: "22px", height: "22px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                    />
+                    <span style={{ fontSize: "0.85rem", color: "#eee", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {username}
+                    </span>
+                    {m.rating_changes && username in m.rating_changes && (
+                      <span
+                        style={{
+                          fontSize: "0.7rem",
+                          fontWeight: 700,
+                          color: won ? "#22c55e" : "#ef4444",
+                          background: won ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
+                          borderRadius: "3px",
+                          padding: "0.1rem 0.4rem",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {m.rating_changes[username] >= 0 ? "+" : ""}
+                        {m.rating_changes[username]}
+                      </span>
+                    )}
+                    <span style={{ color: won ? "#22c55e" : "#ef4444", fontSize: "0.8rem", flexShrink: 0 }}>
+                      {won ? "✓" : "✕"}
+                    </span>
+                  </div>
+                );
+
                 return (
-                  <div key={m.id}>
+                  <div key={m.id} style={{ width: "100%" }}>
                   <div
                     style={{
-                      display: "flex",
+                      display: "grid",
+                      gridTemplateColumns: "32px 1fr 1fr 140px auto auto auto auto",
                       alignItems: "center",
                       gap: "1rem",
-                      padding: "0.75rem 1rem",
-                      background: "#0e0e0e",
+                      padding: "0.85rem 1rem",
+                      background: rowNumber % 2 === 0 ? "#12161c" : "#0d1015",
                       border: "1px solid #222",
                       borderRadius: "6px",
                       flexWrap: "wrap",
+                      width: "100%",
+                      boxSizing: "border-box",
                     }}
                   >
-                    <div
+                    <span
                       style={{
-                        flex: "1 1 220px",
+                        width: "26px",
+                        height: "26px",
                         display: "flex",
                         alignItems: "center",
-                        gap: "0.5rem",
-                        background: "rgba(34,197,94,0.08)",
-                        border: "1px solid rgba(34,197,94,0.5)",
+                        justifyContent: "center",
+                        background: "#1c222b",
                         borderRadius: "4px",
-                        padding: "0.5rem 0.75rem",
+                        fontSize: "0.7rem",
+                        color: "#888",
+                        flexShrink: 0,
                       }}
                     >
-                      <span style={{ color: "#22c55e", fontSize: "0.9rem" }}>✓</span>
-                      <span style={{ fontSize: "0.85rem", color: "#eee", flex: 1 }}>
-                        {m.winners.join(", ")}
-                        {m.rating_changes && (
-                          <span style={{ color: "#22c55e", marginLeft: "0.4rem" }}>
-                            (+{m.rating_changes[m.winners[0]] ?? 0})
-                          </span>
-                        )}
-                      </span>
-                    </div>
-
-                    <span style={{ opacity: 0.5, fontSize: "0.75rem", flex: "0 0 auto" }}>VS</span>
+                      {rowNumber}
+                    </span>
 
                     <div
                       style={{
-                        flex: "1 1 220px",
                         display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        background: "rgba(239,68,68,0.06)",
-                        border: "1px solid rgba(239,68,68,0.35)",
+                        flexDirection: "column",
+                        gap: "0.3rem",
+                        background: "rgba(34,197,94,0.06)",
+                        border: "1px solid rgba(34,197,94,0.4)",
                         borderRadius: "4px",
                         padding: "0.5rem 0.75rem",
+                        minWidth: "180px",
                       }}
                     >
-                      <span style={{ color: "#ef4444", fontSize: "0.9rem" }}>✕</span>
-                      <span style={{ fontSize: "0.85rem", color: "#999" }}>
-                        {losers.join(", ") || "—"}
-                        {m.rating_changes && losers[0] && (
-                          <span style={{ color: "#ef4444", marginLeft: "0.4rem" }}>
-                            ({m.rating_changes[losers[0]] ?? 0})
-                          </span>
-                        )}
-                      </span>
+                      {m.winners.map((w) => renderPlayer(w, true))}
                     </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.3rem",
+                        background: "rgba(239,68,68,0.05)",
+                        border: "1px solid rgba(239,68,68,0.3)",
+                        borderRadius: "4px",
+                        padding: "0.5rem 0.75rem",
+                        minWidth: "180px",
+                      }}
+                    >
+                      {losers.length > 0 ? losers.map((l) => renderPlayer(l, false)) : (
+                        <span style={{ fontSize: "0.8rem", opacity: 0.4 }}>—</span>
+                      )}
+                    </div>
+
+                    <span
+                      style={{
+                        fontSize: "0.8rem",
+                        color: "#ccc",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={m.map ?? undefined}
+                    >
+                      {m.map || "—"}
+                    </span>
+
+                    <span
+                      style={{
+                        fontSize: "0.7rem",
+                        textTransform: "uppercase",
+                        color: "#f5a623",
+                        border: "1px solid #f5a623",
+                        borderRadius: "3px",
+                        padding: "0.15rem 0.4rem",
+                        whiteSpace: "nowrap",
+                        justifySelf: "center",
+                      }}
+                    >
+                      {m.mode}
+                    </span>
+
+                    <span style={{ fontSize: "0.75rem", opacity: 0.55, whiteSpace: "nowrap", textAlign: "right" }}>
+                      {timeAgo(m.created_at)}
+                    </span>
 
                     {m.replay_url ? (
                       <a
@@ -614,95 +775,75 @@ export default function LeaderboardPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         title="Download replay"
-                        style={{
-                          flex: "0 0 auto",
-                          fontSize: "0.7rem",
-                          color: "#f5a623",
-                          border: "1px solid #f5a623",
-                          borderRadius: "3px",
-                          padding: "0.25rem 0.6rem",
-                          textDecoration: "none",
-                          whiteSpace: "nowrap",
-                        }}
+                        style={{ color: "#f5a623", fontSize: "1rem", textDecoration: "none", justifySelf: "center" }}
                       >
-                        ⬇ Replay
+                        ⬇
                       </a>
                     ) : isAdmin ? (
                       <button
                         onClick={() => startEditingReplay(m.id)}
+                        title="Add a replay"
                         style={{
-                          flex: "0 0 auto",
-                          fontSize: "0.7rem",
-                          color: "#888",
                           background: "none",
                           border: "1px dashed #444",
+                          color: "#666",
                           borderRadius: "3px",
-                          padding: "0.25rem 0.6rem",
-                          whiteSpace: "nowrap",
+                          padding: "0.1rem 0.4rem",
+                          fontSize: "0.65rem",
                           cursor: "pointer",
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        No replay — Add one
+                        + Replay
                       </button>
                     ) : (
-                      <span
-                        style={{
-                          flex: "0 0 auto",
-                          fontSize: "0.7rem",
-                          color: "#666",
-                          border: "1px solid #333",
-                          borderRadius: "3px",
-                          padding: "0.25rem 0.6rem",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        No replay found
-                      </span>
+                      <span style={{ opacity: 0.2, fontSize: "1rem", justifySelf: "center" }}>—</span>
                     )}
 
-                    <span
-                      style={{
-                        flex: "0 0 auto",
-                        fontSize: "0.7rem",
-                        textTransform: "uppercase",
-                        color: "#f5a623",
-                        border: "1px solid #f5a623",
-                        borderRadius: "3px",
-                        padding: "0.15rem 0.4rem",
-                      }}
-                    >
-                      {m.mode}
-                    </span>
-
-                    {m.tournament_name && (
-                      <span style={{ flex: "0 0 auto", fontSize: "0.7rem", opacity: 0.7 }}>
-                        {m.tournament_name}
-                        {m.round ? ` · ${m.round}` : ""}
-                      </span>
-                    )}
-
-                    <span style={{ flex: "0 0 auto", fontSize: "0.75rem", opacity: 0.6 }}>
-                      {new Date(m.created_at).toLocaleDateString()}
-                    </span>
-
-                    {isAdmin && (
+                    <div style={{ display: "flex", gap: "0.4rem", justifyContent: "center", alignItems: "center" }}>
                       <button
-                        onClick={() => handleDeleteMatch(m.id)}
+                        onClick={() => handleReportMatch(m.id)}
+                        title="Report this match"
                         style={{
-                          flex: "0 0 auto",
                           background: "none",
-                          border: "1px solid #ef4444",
-                          color: "#ef4444",
+                          border: "1px solid #666",
+                          color: "#888",
                           borderRadius: "3px",
-                          padding: "0.15rem 0.5rem",
-                          fontSize: "0.7rem",
+                          padding: "0.15rem 0.4rem",
+                          fontSize: "0.8rem",
                           cursor: "pointer",
+                          lineHeight: 1,
                         }}
                       >
-                        Delete
+                        🚩
                       </button>
-                    )}
+
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleDeleteMatch(m.id)}
+                          style={{
+                            background: "none",
+                            border: "1px solid #ef4444",
+                            color: "#ef4444",
+                            borderRadius: "3px",
+                            padding: "0.15rem 0.5rem",
+                            fontSize: "0.7rem",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {m.tournament_name && (
+                    <p style={{ fontSize: "0.7rem", opacity: 0.5, marginTop: "0.25rem", marginLeft: "3rem" }}>
+                      {m.tournament_name}
+                      {m.round ? ` · ${m.round}` : ""}
+                    </p>
+                  )}
 
                   {editingReplayId === m.id && (
                     <div
@@ -802,6 +943,84 @@ export default function LeaderboardPage() {
                 <p className="leaderboard-empty">No matches logged yet in this view.</p>
               )}
             </div>
+
+            {filtered.length > MATCHES_PAGE_SIZE && (
+              <div style={{ display: "flex", justifyContent: "center", gap: "0.4rem", flexWrap: "wrap", marginTop: "1rem" }}>
+                {(() => {
+                  const totalMatchPages = Math.max(1, Math.ceil(filtered.length / MATCHES_PAGE_SIZE));
+                  const pageNumbers: (number | "...")[] = [];
+                  const neighbors = 1;
+                  for (let p = 1; p <= totalMatchPages; p++) {
+                    if (p === 1 || p === totalMatchPages || (p >= matchesPage - neighbors && p <= matchesPage + neighbors)) {
+                      pageNumbers.push(p);
+                    } else if (pageNumbers[pageNumbers.length - 1] !== "...") {
+                      pageNumbers.push("...");
+                    }
+                  }
+
+                  return (
+                    <>
+                      <button
+                        onClick={() => setMatchesPage((p) => Math.max(1, p - 1))}
+                        disabled={matchesPage === 1}
+                        style={{
+                          padding: "0.4rem 0.8rem",
+                          fontSize: "0.75rem",
+                          background: "none",
+                          border: "1px solid #444",
+                          color: matchesPage === 1 ? "#444" : "#eee",
+                          cursor: matchesPage === 1 ? "default" : "pointer",
+                          borderRadius: "3px",
+                        }}
+                      >
+                        ← Prev
+                      </button>
+
+                      {pageNumbers.map((p, i) =>
+                        p === "..." ? (
+                          <span key={`ellipsis-${i}`} style={{ padding: "0.4rem 0.4rem", fontSize: "0.75rem", opacity: 0.5 }}>
+                            …
+                          </span>
+                        ) : (
+                          <button
+                            key={p}
+                            onClick={() => setMatchesPage(p)}
+                            style={{
+                              padding: "0.4rem 0.7rem",
+                              fontSize: "0.75rem",
+                              background: p === matchesPage ? "#f5a623" : "none",
+                              color: p === matchesPage ? "#000" : "#eee",
+                              border: "1px solid #444",
+                              fontWeight: p === matchesPage ? 700 : 400,
+                              cursor: "pointer",
+                              borderRadius: "3px",
+                            }}
+                          >
+                            {p}
+                          </button>
+                        )
+                      )}
+
+                      <button
+                        onClick={() => setMatchesPage((p) => Math.min(totalMatchPages, p + 1))}
+                        disabled={matchesPage === totalMatchPages}
+                        style={{
+                          padding: "0.4rem 0.8rem",
+                          fontSize: "0.75rem",
+                          background: "none",
+                          border: "1px solid #444",
+                          color: matchesPage === totalMatchPages ? "#444" : "#eee",
+                          cursor: matchesPage === totalMatchPages ? "default" : "pointer",
+                          borderRadius: "3px",
+                        }}
+                      >
+                        Next →
+                      </button>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
           </>
         )}
       </div>

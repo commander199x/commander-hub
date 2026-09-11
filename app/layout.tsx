@@ -35,21 +35,33 @@ const tajawal = Tajawal({
 });
 
 const SITE_URL = "https://commander.host";
+const SITE_TITLE = "Commander | Generals Zero Hour Community";
+const SITE_DESCRIPTION =
+  "Replays, maps, mods, videos and tournaments for the Generals Zero Hour community.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Commander | Generals Zero Hour Community",
+    default: SITE_TITLE,
     template: "%s | Commander",
   },
-  description:
-    "Replays, maps, mods, videos and tournaments for the Generals Zero Hour community.",
+  description: SITE_DESCRIPTION,
+  alternates: {
+    canonical: SITE_URL,
+  },
   openGraph: {
-    title: "Commander | Generals Zero Hour Community",
-    description:
-      "Replays, maps, mods, videos and tournaments for the Generals Zero Hour community.",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    siteName: "Commander",
     images: ["/images/banner.png"],
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ["/images/banner.png"],
   },
   icons: {
     icon: "/favicon.ico",

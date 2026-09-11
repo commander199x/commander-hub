@@ -2,12 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import MatchForm from "@/components/MatchForm";
 import RecentMatchesAdmin from "@/components/RecentMatchesAdmin";
 import RecalculateRatings from "@/components/RecalculateRatings";
 import ResetSeasonRatings from "@/components/ResetSeasonRatings";
+import MergeGuestIntoAccount from "@/components/MergeGuestIntoAccount";
+import MergeDuplicateAccounts from "@/components/MergeDuplicateAccounts";
 import TankSpinner from "@/components/TankSpinner";
+import { logAdminAction } from "@/lib/auditLog";
 import "@/app/admin.css";
 
 interface Profile {
@@ -29,6 +33,7 @@ export default function AdminPage() {
   const [authorized, setAuthorized] = useState(false);
   const [users, setUsers] = useState<Profile[]>([]);
   const [search, setSearch] = useState("");
+  const [adminUsername, setAdminUsername] = useState<string>("unknown");
 
   useEffect(() => {
     async function checkAccessAndLoad() {
@@ -43,7 +48,7 @@ export default function AdminPage() {
 
       const { data: myProfile } = await supabase
         .from("profiles")
-        .select("is_admin")
+        .select("is_admin, username")
         .eq("id", user.id)
         .single();
 
@@ -53,6 +58,7 @@ export default function AdminPage() {
       }
 
       setAuthorized(true);
+      setAdminUsername(myProfile.username ?? "unknown");
 
       const { data: allUsers } = await supabase
         .from("profiles")
@@ -67,6 +73,7 @@ export default function AdminPage() {
   }, [router, supabase]);
 
   async function toggleBan(id: string, current: boolean) {
+    const target = users.find((u) => u.id === id);
     const { error } = await supabase
       .from("profiles")
       .update({ banned: !current })
@@ -76,6 +83,9 @@ export default function AdminPage() {
       setUsers((prev) =>
         prev.map((u) => (u.id === id ? { ...u, banned: !current } : u))
       );
+      await logAdminAction(supabase, adminUsername, !current ? "ban_user" : "unban_user", {
+        target_username: target?.username,
+      });
     }
   }
 
@@ -86,6 +96,7 @@ export default function AdminPage() {
     if (!confirmed) return;
 
     await supabase.from("messages").delete().eq("user_id", id);
+    await logAdminAction(supabase, adminUsername, "delete_all_messages", { target_username: username });
   }
 
   async function toggleTeam(id: string, current: boolean) {
@@ -154,13 +165,22 @@ export default function AdminPage() {
       <div className="admin-panel">
         <MatchForm allUsers={users.map((u) => ({ username: u.username }))} />
 
-        <RecentMatchesAdmin />
+        <RecentMatchesAdmin adminUsername={adminUsername} />
 
-        <RecalculateRatings />
+        <RecalculateRatings adminUsername={adminUsername} />
 
-        <ResetSeasonRatings />
+        <MergeGuestIntoAccount adminUsername={adminUsername} />
 
-        <h1>User Moderation</h1>
+        <MergeDuplicateAccounts adminUsername={adminUsername} />
+
+        <ResetSeasonRatings adminUsername={adminUsername} />
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h1>User Moderation</h1>
+          <Link href="/admin/audit-log" style={{ fontSize: "0.8rem", color: "#f5a623" }}>
+            View Audit Log →
+          </Link>
+        </div>
 
         <input
           type="text"
