@@ -23,6 +23,13 @@ export const maps: MapEntry[] = [
     file: "/downloads/maps/commander twilight v2.zip",
   },
   {
+    name: "AOD Maps Commander",
+    description: "Art of Defense (AOD) Maps, Discover and download a collection of Art of Defense maps for Command & Conquer: Generals – Zero Hour. Find new challenges, unique layouts, and maps designed for defensive and cooperative gameplay. ",
+    image: "/downloads/maps/AOD Maps.png",
+    file: "/downloads/maps/4 - Art of Defense (AOD).zip",
+  },
+
+  {
     name: "South Lebanon جنوب لبنان",
     description: "Competitive 4v4 city map, last_v2 balance pass.",
     image: "/downloads/maps/southlebanon.png",
