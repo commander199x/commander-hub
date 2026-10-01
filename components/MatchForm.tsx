@@ -28,6 +28,7 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
   const [replayFile, setReplayFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [loadingLastMatch, setLoadingLastMatch] = useState(false);
 
   // Guest players: names typed in on the spot for people without a site
   // account. They're just plain text in participants/winners (the matches
@@ -131,6 +132,56 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
     setMatchDate(new Date().toISOString().slice(0, 10));
     setReplayLink("");
     setReplayFile(null);
+  }
+
+  // Fetches the most recent match in the CURRENT mode and pre-fills the
+  // same roster (teams split the same way, or the same FFA participant
+  // list), so logging a back-to-back rematch only takes picking the
+  // winner instead of re-clicking everyone from scratch. Intentionally
+  // does NOT pre-select a winner — that's the one thing that genuinely
+  // needs a human to say for each match.
+  async function repeatLastMatch() {
+    setLoadingLastMatch(true);
+    setMessage(null);
+
+    const { data, error } = await supabase
+      .from("matches")
+      .select("participants, winners, map")
+      .eq("mode", mode)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    setLoadingLastMatch(false);
+
+    if (error || !data) {
+      setMessage(`No previous ${mode.toUpperCase()} match found to repeat.`);
+      return;
+    }
+
+    // Make sure any guest names from that match are selectable in the UI.
+    const registeredSet = new Set(registeredNames);
+    const newGuests = data.participants.filter(
+      (p: string) => !registeredSet.has(p) && !guestPlayers.includes(p)
+    );
+    if (newGuests.length > 0) {
+      setGuestPlayers((prev) => [...prev, ...newGuests]);
+    }
+
+    if (isTeamMode) {
+      const prevWinners: string[] = data.winners;
+      const prevLosers: string[] = data.participants.filter((p: string) => !prevWinners.includes(p));
+      setTeam1(prevWinners);
+      setTeam2(prevLosers);
+      setWinningTeam(null);
+    } else {
+      setParticipants(data.participants);
+      setWinner(null);
+    }
+
+    if (data.map) setMap(data.map);
+
+    setMessage(`Loaded roster from the last ${mode.toUpperCase()} match — pick the winner and submit.`);
   }
 
   // Resolves the final replay URL to store: an uploaded file takes
@@ -376,7 +427,7 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
     <div style={{ border: "1px solid #333", padding: "1rem", marginBottom: "1rem" }}>
       <h3>Log a Match</h3>
 
-      <div style={{ marginBottom: "1rem" }}>
+      <div style={{ marginBottom: "1rem", display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
         <label style={{ marginRight: "0.5rem" }}>Mode: </label>
         <select
           value={mode}
@@ -394,6 +445,24 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
           <option value="4v4">4v4</option>
           <option value="ffa">FFA</option>
         </select>
+
+        <button
+          type="button"
+          onClick={repeatLastMatch}
+          disabled={loadingLastMatch}
+          title={`Pre-fill the same roster as the last ${mode.toUpperCase()} match`}
+          style={{
+            background: "none",
+            border: "1px solid #60a5fa",
+            color: "#60a5fa",
+            padding: "0.3rem 0.7rem",
+            fontSize: "0.8rem",
+            cursor: loadingLastMatch ? "default" : "pointer",
+            opacity: loadingLastMatch ? 0.6 : 1,
+          }}
+        >
+          {loadingLastMatch ? "Loading..." : "↻ Repeat Last Match"}
+        </button>
       </div>
 
       <div style={{ marginBottom: "1rem", padding: "0.6rem", border: "1px dashed #444", borderRadius: "4px" }}>
