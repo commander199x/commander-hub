@@ -6,6 +6,7 @@ import { C, DISCORD_URL } from "@/lib/theme";
 import LiveBanner from "@/components/LiveBanner";
 import NewsFeed from "@/components/NewsFeed";
 import HomeLeaderboardPreview from "@/components/HomeLeaderboardPreview";
+import YouTubeSection from "@/components/YouTubeSection";
 import FadeIn from "@/components/FadeIn";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import "@/app/animations.css";
@@ -182,6 +183,10 @@ export default function Home() {
           </div>
 
           <NewsFeed limit={3} />
+        </FadeIn>
+
+        <FadeIn>
+          <YouTubeSection />
         </FadeIn>
 
         <FadeIn>
