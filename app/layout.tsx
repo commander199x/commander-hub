@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Oswald, JetBrains_Mono, Cairo, Tajawal } from "next/font/google";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import TopBanner from "@/components/TopBanner";
 import { C } from "@/lib/theme";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import "./globals.css";
@@ -77,6 +78,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         suppressHydrationWarning
       >
         <LanguageProvider>
+          <TopBanner />
           <Header />
           {children}
           <Analytics />
