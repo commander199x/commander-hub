@@ -189,6 +189,7 @@ function helpReply(): Reply {
     `\`/${LADDER} mode:FFA\` — use the FFA ladder instead`,
     ...(socials ? [`${socials} — our channels`] : []),
     ...(SUPPORT_CHANNEL_ID ? ["`/support` or `/مساعدة` — where to get help"] : []),
+    "`/whoareu` — who I am",
     "`/help` — this list",
   ];
   const ar = [
@@ -197,6 +198,7 @@ function helpReply(): Reply {
     `\`/${LADDER} mode:FFA\` — تصنيف FFA بدلاً من الفرق`,
     ...(socials ? [`${socials} — قنواتنا`] : []),
     ...(SUPPORT_CHANNEL_ID ? ["`/مساعدة` أو `/support` — أين تجد المساعدة"] : []),
+    "`/whoareu` — من أنا",
     "`/help` — هذه القائمة",
   ];
   return {
@@ -209,6 +211,29 @@ function helpReply(): Reply {
         footer: { text: "commander.host" },
       },
     ],
+  };
+}
+
+function introReply(): Reply {
+  return {
+    embeds: [
+      {
+        title: "Commander",
+        url: SITE,
+        color: AMBER,
+        description: [
+          "I'm **Commander**, the official bot of the Commander clan for C&C Generals Zero Hour.",
+          "I keep track of the ranked ladder on commander.host, so you can check anyone's rating and rank right here in Discord.",
+          "Type `/help` to see everything I can do.",
+          "",
+          "أنا **كوماندر**، البوت الرسمي لكلان كوماندر في لعبة جنرالات الساعة الصفر.",
+          "أتابع التصنيف على موقع commander.host، لتعرف تقييم أي لاعب وترتيبه هنا في ديسكورد مباشرة.",
+          "اكتب `/help` لترى كل ما أستطيع فعله.",
+        ].join("\n"),
+        footer: { text: "commander.host" },
+      },
+    ],
+    components: [{ type: 1, components: [{ type: 2, style: 5, label: "Visit commander.host", url: SITE }] }],
   };
 }
 
@@ -254,6 +279,7 @@ export async function POST(req: Request) {
     const command = interaction.data?.name ?? "";
 
     // Instant answers (no database needed)
+    if (command === "whoareu") return NextResponse.json({ type: 4, data: { ...introReply(), allowed_mentions: { parse: [] } } });
     if (command === "help") return NextResponse.json({ type: 4, data: { ...helpReply(), allowed_mentions: { parse: [] } } });
     if (SUPPORT_COMMANDS.has(command)) return NextResponse.json({ type: 4, data: { ...supportReply(), allowed_mentions: { parse: [] } } });
     if (isSocial(command)) return NextResponse.json({ type: 4, data: { ...socialReply(command), allowed_mentions: { parse: [] } } });

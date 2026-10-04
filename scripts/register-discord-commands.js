@@ -57,6 +57,7 @@ const LABEL = { youtube: 'YouTube', tiktok: 'TikTok', kick: 'Kick', twitch: 'Twi
       ],
     },
     { name: 'help', type: 1, description: 'List all Commander bot commands' },
+    { name: 'whoareu', type: 1, description: 'Meet the Commander bot' },
   ];
   const socials = readSocials();
   for (const key of Object.keys(LABEL)) {
