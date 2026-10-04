@@ -200,7 +200,6 @@ function helpReply(): Reply {
     "`/help` — هذه القائمة",
   ];
   return {
-    flags: 64, // only the person who asked sees it
     embeds: [
       {
         title: "Commander bot",
@@ -227,7 +226,6 @@ function supportReply(): Reply {
   if (!SUPPORT_CHANNEL_ID) return { flags: 64, content: "The support channel isn't set up yet." };
   const ch = `<#${SUPPORT_CHANNEL_ID}>`;
   return {
-    flags: 64, // only the person who asked sees it
     content: `للمساعدة توجّه إلى ${ch} واكتب سؤالك هناك.\nFor help, head to ${ch} and post your question there.`,
   };
 }
