@@ -25,8 +25,12 @@ function readSocials() {
   const out = {};
   if (!fs.existsSync(file)) return out;
   for (const m of fs.readFileSync(file, 'utf8').matchAll(/"?(youtube|tiktok|kick|twitch)"?\s*:\s*"([^"]*)"/g)) out[m[1]] = m[2].trim();
+  const sup = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').match(/SUPPORT_CHANNEL_ID\s*=\s*"(\d*)"/) : null;
+  out.support = sup ? sup[1] : '';
   return out;
 }
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const LABEL = { youtube: 'YouTube', tiktok: 'TikTok', kick: 'Kick', twitch: 'Twitch' };
 
@@ -58,23 +62,35 @@ const LABEL = { youtube: 'YouTube', tiktok: 'TikTok', kick: 'Kick', twitch: 'Twi
   for (const key of Object.keys(LABEL)) {
     if (socials[key]) commands.push({ name: key, type: 1, description: `Get the Commander ${LABEL[key]} link` });
   }
+  if (socials.support) {
+    commands.push({ name: 'support', type: 1, description: 'Where to get help on the Commander server' });
+    commands.push({ name: 'مساعدة', type: 1, description: 'Where to get help (أين تجد المساعدة)' });
+  }
 
   let failed = false;
   for (const cmd of commands) {
-    const res = await fetch(`https://discord.com/api/v10/applications/${appId}/commands`, {
-      method: 'POST',
-      headers: { Authorization: `Bot ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(cmd),
-    });
-    if (res.ok) console.log(`\x1b[32m✔\x1b[0m /${cmd.name}`);
-    else {
-      failed = true;
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      const res = await fetch(`https://discord.com/api/v10/applications/${appId}/commands`, {
+        method: 'POST',
+        headers: { Authorization: `Bot ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(cmd),
+      });
+      if (res.ok) { console.log(`\x1b[32m✔\x1b[0m /${cmd.name}`); break; }
       const text = await res.text();
+      if (res.status === 429 && attempt < 4) {
+        let wait = 2;
+        try { wait = Number(JSON.parse(text).retry_after) || 2; } catch {}
+        console.log(`  … Discord asked us to slow down, waiting ${Math.ceil(wait)}s`);
+        await sleep(Math.ceil(wait * 1000) + 300);
+        continue;
+      }
+      failed = true;
       console.error(`\x1b[31m✘\x1b[0m /${cmd.name}: Discord said ${res.status}: ${text}`);
       if (res.status === 401) console.error('  -> The bot token is wrong. Reset it on the Bot page and update .env.local.');
       if (res.status === 404) console.error('  -> The Application ID is wrong. Copy it from General Information.');
-      if (res.status === 429) console.error('  -> Too many requests. Wait a minute and run this again.');
+      break;
     }
+    await sleep(400); // be gentle with Discord's rate limit
   }
   if (!failed) console.log('\nAll commands registered. In Discord press Ctrl+R; new ones can take a few minutes to appear.');
   process.exit(failed ? 1 : 0);

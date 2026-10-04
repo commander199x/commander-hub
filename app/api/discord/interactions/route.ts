@@ -3,7 +3,7 @@
 import { NextResponse, after } from "next/server";
 import { createPublicKey, verify } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import { SOCIALS } from "@/lib/discord-socials";
+import { SOCIALS, SUPPORT_CHANNEL_ID } from "@/lib/discord-socials";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +21,7 @@ const LADDER = "ladder";
 type SocialKey = keyof typeof SOCIALS;
 const SOCIAL_LABEL: Record<SocialKey, string> = { youtube: "YouTube", tiktok: "TikTok", kick: "Kick", twitch: "Twitch" };
 const isSocial = (name: string): name is SocialKey => Object.prototype.hasOwnProperty.call(SOCIAL_LABEL, name);
+const SUPPORT_COMMANDS = new Set(["support", "مساعدة"]);
 const activeSocials = () => (Object.keys(SOCIAL_LABEL) as SocialKey[]).filter((k) => !!SOCIALS[k]);
 
 type Option = { name: string; value?: string | number | boolean };
@@ -177,12 +178,17 @@ async function buildReply(player: string, mode: "team" | "ffa"): Promise<Reply> 
 }
 
 function helpReply(): Reply {
+  // If a support channel is set, /help points there first.
+  const supportTop = SUPPORT_CHANNEL_ID
+    ? `**Need help?** Head to <#${SUPPORT_CHANNEL_ID}> and post your question.\n**تحتاج مساعدة؟** توجّه إلى <#${SUPPORT_CHANNEL_ID}> واكتب سؤالك هناك.\n\n**Commands**\n`
+    : "";
   const socials = activeSocials().map((k) => `\`/${k}\``).join(" ");
   const en = [
     `\`/${LADDER}\` — top 5 on the Team ladder`,
     `\`/${LADDER} player:<name>\` — a player's rank, rating and win rate`,
     `\`/${LADDER} mode:FFA\` — use the FFA ladder instead`,
     ...(socials ? [`${socials} — our channels`] : []),
+    ...(SUPPORT_CHANNEL_ID ? ["`/support` or `/مساعدة` — where to get help"] : []),
     "`/help` — this list",
   ];
   const ar = [
@@ -190,6 +196,7 @@ function helpReply(): Reply {
     `\`/${LADDER} player:<الاسم>\` — ترتيب اللاعب وتقييمه ونسبة فوزه`,
     `\`/${LADDER} mode:FFA\` — تصنيف FFA بدلاً من الفرق`,
     ...(socials ? [`${socials} — قنواتنا`] : []),
+    ...(SUPPORT_CHANNEL_ID ? ["`/مساعدة` أو `/support` — أين تجد المساعدة"] : []),
     "`/help` — هذه القائمة",
   ];
   return {
@@ -199,7 +206,7 @@ function helpReply(): Reply {
         title: "Commander bot",
         url: SITE,
         color: AMBER,
-        description: `${en.join("\n")}\n\n**بالعربية**\n${ar.join("\n")}`,
+        description: `${supportTop}${en.join("\n")}\n\n**بالعربية**\n${ar.join("\n")}`,
         footer: { text: "commander.host" },
       },
     ],
@@ -213,6 +220,15 @@ function socialReply(key: SocialKey): Reply {
   return {
     content: `**Commander on ${label}**\n${url}`,
     components: [{ type: 1, components: [{ type: 2, style: 5, label: `Open ${label}`, url }] }],
+  };
+}
+
+function supportReply(): Reply {
+  if (!SUPPORT_CHANNEL_ID) return { flags: 64, content: "The support channel isn't set up yet." };
+  const ch = `<#${SUPPORT_CHANNEL_ID}>`;
+  return {
+    flags: 64, // only the person who asked sees it
+    content: `للمساعدة توجّه إلى ${ch} واكتب سؤالك هناك.\nFor help, head to ${ch} and post your question there.`,
   };
 }
 
@@ -241,6 +257,7 @@ export async function POST(req: Request) {
 
     // Instant answers (no database needed)
     if (command === "help") return NextResponse.json({ type: 4, data: { ...helpReply(), allowed_mentions: { parse: [] } } });
+    if (SUPPORT_COMMANDS.has(command)) return NextResponse.json({ type: 4, data: { ...supportReply(), allowed_mentions: { parse: [] } } });
     if (isSocial(command)) return NextResponse.json({ type: 4, data: { ...socialReply(command), allowed_mentions: { parse: [] } } });
 
     // Everything else is the ladder command
