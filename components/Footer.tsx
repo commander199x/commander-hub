@@ -1,34 +1,226 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowUp, Heart, LifeBuoy } from "lucide-react";
 import { C, DISCORD_URL, SUPPORT_DISCORD_URL, YOUTUBE_URL, TIKTOK_URL } from "@/lib/theme";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
+// Arabic needs a native review.
+const TEXT = {
+  en: {
+    blurb: "The home of competitive Generals Zero Hour: ranked ladders, tournaments, replays and a clan that plays every week.",
+    play: "Compete",
+    community: "Community",
+    resources: "Resources",
+    leaderboard: "Leaderboard",
+    tournaments: "Tournaments",
+    standings: "Standings",
+    replays: "Replays",
+    chat: "Chat",
+    members: "Members",
+    videos: "Videos",
+    news: "News",
+    downloads: "Downloads",
+    join: "Join the team",
+    about: "About",
+    contact: "Contact",
+    privacy: "Privacy",
+    terms: "Terms",
+    online: "All systems online",
+    top: "Back to top",
+  },
+  ar: {
+    blurb: "موطن جنرالات الساعة الصفر التنافسية: تصنيفات وبطولات وإعادات وكلان يلعب كل أسبوع.",
+    play: "المنافسة",
+    community: "المجتمع",
+    resources: "الموارد",
+    leaderboard: "لوحة الصدارة",
+    tournaments: "البطولات",
+    standings: "الترتيب",
+    replays: "الإعادات",
+    chat: "الدردشة",
+    members: "الأعضاء",
+    videos: "الفيديوهات",
+    news: "الأخبار",
+    downloads: "التحميلات",
+    join: "انضم إلى الفريق",
+    about: "من نحن",
+    contact: "تواصل معنا",
+    privacy: "الخصوصية",
+    terms: "الشروط",
+    online: "جميع الأنظمة تعمل",
+    top: "العودة للأعلى",
+  },
+};
+
+const CSS = `
+@keyframes czf-sweep { to { transform: rotate(360deg); } }
+.czf-sweep { animation: czf-sweep 4s linear infinite; }
+.czf-link { position: relative; display: inline-block; transition: color 0.2s ease, transform 0.2s ease; }
+.czf-link::after { content: ""; position: absolute; inset-inline-start: 0; bottom: -2px; height: 1px; width: 0; background: #E8A63D; transition: width 0.25s ease; }
+.czf-link:hover { color: #EDEAE0 !important; transform: translateX(3px); }
+[dir="rtl"] .czf-link:hover { transform: translateX(-3px); }
+.czf-link:hover::after { width: 100%; }
+.czf-social { transition: transform 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease; }
+.czf-social:hover { transform: translateY(-4px); border-color: #E8A63D !important; color: #E8A63D !important; box-shadow: 0 10px 24px rgba(232,166,61,0.2); }
+.czf-top .czf-top-icon { transition: transform 0.25s ease; }
+.czf-top:hover .czf-top-icon { transform: translateY(-3px); }
+@media (prefers-reduced-motion: reduce) {
+  .czf-sweep { animation: none !important; }
+  .czf-link, .czf-social, .czf-top .czf-top-icon { transition: none !important; }
+  .czf-link:hover, .czf-social:hover, .czf-top:hover .czf-top-icon { transform: none !important; }
+}
+`;
+
+const ICONS = {
+  discord: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.028C.533 9.046-.32 13.58.099 18.058a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.042-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.011c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.099.246.198.373.292a.077.077 0 0 1-.007.128 12.3 12.3 0 0 1-1.873.891.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.029 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.055c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.029ZM8.02 15.331c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.332-.956 2.418-2.157 2.418Zm7.975 0c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.332-.946 2.418-2.157 2.418Z" />
+    </svg>
+  ),
+  youtube: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.5V8.5l6.3 3.5-6.3 3.5Z" />
+    </svg>
+  ),
+  tiktok: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M16.6 2h-3.2v14.1a3.1 3.1 0 1 1-2.6-3.06V9.8a6.3 6.3 0 1 0 5.8 6.28V8.3a8.2 8.2 0 0 0 4.8 1.55V6.7a5 5 0 0 1-4.8-4.7Z" />
+    </svg>
+  ),
+};
+
 export default function Footer() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+  const lang = locale === "ar" ? "ar" : "en";
+  const tx = TEXT[lang];
+
+  const columns = [
+    { title: tx.play, links: [["/leaderboard", tx.leaderboard], ["/tournaments", tx.tournaments], ["/tournaments/standings", tx.standings], ["/replays", tx.replays]] },
+    { title: tx.community, links: [["/chat", tx.chat], ["/members", tx.members], ["/videos", tx.videos], ["/news", tx.news]] },
+    { title: tx.resources, links: [["/downloads", tx.downloads], ["/join", tx.join], ["/about", tx.about], ["/contact", tx.contact]] },
+  ] as const;
+
+  const socials = [
+    { href: DISCORD_URL, label: t("footer.discord"), icon: ICONS.discord },
+    { href: YOUTUBE_URL, label: t("footer.youtube"), icon: ICONS.youtube },
+    { href: TIKTOK_URL, label: t("footer.tiktok"), icon: ICONS.tiktok },
+  ];
+
+  function toTop() {
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+  }
 
   return (
-    <footer style={{ borderTop: `1px solid ${C.line}` }}>
-      <div className="max-w-6xl mx-auto px-6 md:px-10 py-10 flex flex-col md:flex-row items-center justify-between gap-4 text-xs uppercase tracking-widest">
-        <span style={{ color: C.muted }}>
-          &copy; {new Date().getFullYear()} {t("footer.tagline")}
-        </span>
+    <footer className="relative overflow-hidden" style={{ borderTop: `1px solid ${C.line}`, background: "linear-gradient(180deg, #0A0C08, #0D100A)" }}>
+      <style>{CSS}</style>
+      {/* faint grid + glow */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage:
+            "radial-gradient(ellipse 50% 80% at 85% 100%, rgba(232,166,61,0.08), transparent 60%), linear-gradient(rgba(39,43,30,0.35) 1px, transparent 1px), linear-gradient(90deg, rgba(39,43,30,0.35) 1px, transparent 1px)",
+          backgroundSize: "100% 100%, 48px 48px, 48px 48px",
+          maskImage: "linear-gradient(180deg, transparent, black 40%)",
+          WebkitMaskImage: "linear-gradient(180deg, transparent, black 40%)",
+        }}
+      />
 
-        <div className="flex items-center gap-6">
-          <a href="/donate" style={{ color: C.radar }}>
-            {t("footer.donate")}
-          </a>
-          <a href={SUPPORT_DISCORD_URL} target="_blank" rel="noopener noreferrer" style={{ color: C.amber }}>
-            {t("footer.support")}
-          </a>
-          <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" style={{ color: C.paper }}>
-            {t("footer.discord")}
-          </a>
-          <a href={YOUTUBE_URL} target="_blank" rel="noopener noreferrer" style={{ color: C.paper }}>
-            {t("footer.youtube")}
-          </a>
-          <a href={TIKTOK_URL} target="_blank" rel="noopener noreferrer" style={{ color: C.paper }}>
-            {t("footer.tiktok")}
-          </a>
+      <div className="relative mx-auto max-w-[1312px] px-6 pb-8 pt-14 md:px-16">
+        <div className="grid gap-12 lg:grid-cols-[1.4fr_2fr]">
+          {/* Brand */}
+          <div>
+            <Link href="/" className="inline-flex items-center gap-3" aria-label="Commander home">
+              <span className="relative inline-block h-9 w-9 overflow-hidden rounded-full" style={{ border: `1px solid ${C.radar}` }} aria-hidden="true">
+                <span className="absolute inset-[28%] rounded-full" style={{ border: `1px solid rgba(143,191,79,0.4)` }} />
+                <span className="czf-sweep absolute inset-0" style={{ background: "conic-gradient(from 0deg, rgba(143,191,79,0) 0deg, rgba(143,191,79,0) 270deg, rgba(143,191,79,0.8) 360deg)" }} />
+              </span>
+              <span className="cz-display text-3xl uppercase" style={{ color: C.amber, fontWeight: 700 }}>Commander</span>
+            </Link>
+            <p className="mt-4 max-w-sm text-sm leading-relaxed" style={{ color: C.muted }}>
+              {tx.blurb}
+            </p>
+            <div className="mt-6 flex gap-3">
+              {socials.map((s) => (
+                <a
+                  key={s.label}
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={s.label}
+                  title={s.label}
+                  className="czf-social inline-flex h-11 w-11 items-center justify-center border"
+                  style={{ borderColor: C.lineStrong, color: C.paper, background: C.panel }}
+                >
+                  {s.icon}
+                </a>
+              ))}
+            </div>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/donate"
+                className="inline-flex min-h-[40px] items-center gap-2 px-4 text-xs uppercase tracking-widest transition-[filter] hover:brightness-110"
+                style={{ background: C.amber, color: C.void, fontWeight: 700 }}
+              >
+                <Heart size={14} aria-hidden="true" />
+                {t("footer.donate")}
+              </Link>
+              <a
+                href={SUPPORT_DISCORD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-[40px] items-center gap-2 border px-4 text-xs uppercase tracking-widest transition-colors hover:bg-[#171B10]"
+                style={{ borderColor: C.amberDim, color: C.paper }}
+              >
+                <LifeBuoy size={14} aria-hidden="true" />
+                {t("footer.support")}
+              </a>
+            </div>
+          </div>
+
+          {/* Link columns */}
+          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
+            {columns.map((col) => (
+              <div key={col.title}>
+                <div className="mb-4 text-[11px] uppercase tracking-[0.22em]" style={{ color: C.radar }}>
+                  {col.title}
+                </div>
+                <ul className="flex flex-col gap-3">
+                  {col.links.map(([href, label]) => (
+                    <li key={href}>
+                      <Link href={href} className="czf-link text-sm" style={{ color: C.muted }}>
+                        {label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div className="mt-12 flex flex-col gap-4 border-t pt-6 text-xs md:flex-row md:items-center md:justify-between" style={{ borderColor: C.line, color: C.muted }}>
+          <span className="uppercase tracking-widest">
+            &copy; {new Date().getFullYear()} {t("footer.tagline")}
+          </span>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <span className="inline-flex items-center gap-2 uppercase tracking-widest" style={{ color: C.radar }}>
+              <span className="relative inline-flex h-2 w-2">
+                <span className="cz-blink absolute inset-0 rounded-full" style={{ background: C.radar }} />
+                <span className="relative inline-block h-2 w-2 rounded-full" style={{ background: C.radar }} />
+              </span>
+              {tx.online}
+            </span>
+            <Link href="/privacy" className="czf-link uppercase tracking-widest" style={{ color: C.muted }}>{tx.privacy}</Link>
+            <Link href="/terms" className="czf-link uppercase tracking-widest" style={{ color: C.muted }}>{tx.terms}</Link>
+            <button onClick={toTop} className="czf-top inline-flex min-h-[36px] items-center gap-2 border px-3 uppercase tracking-widest transition-colors hover:bg-[#171B10]" style={{ borderColor: C.lineStrong, color: C.paper }}>
+              <ArrowUp size={14} className="czf-top-icon" aria-hidden="true" />
+              {tx.top}
+            </button>
+          </div>
         </div>
       </div>
     </footer>

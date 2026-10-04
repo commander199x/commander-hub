@@ -1,11 +1,23 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import PlayerMatchHistory from "@/components/PlayerMatchHistory";
+import ProfileView, { type ProfileData } from "@/components/profile/ProfileView";
 import "@/app/auth.css";
 
 interface PageProps {
   params: Promise<{ username: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { username } = await params;
+  let name = username;
+  try {
+    name = decodeURIComponent(username);
+  } catch {}
+  return {
+    title: `${name} · Commander`,
+    description: `${name}'s ratings, match history and medals on Commander, the Generals Zero Hour community.`,
+  };
 }
 
 export default async function ProfilePage({ params }: PageProps) {
@@ -14,7 +26,7 @@ export default async function ProfilePage({ params }: PageProps) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, avatar_url, bio, created_at")
+    .select("id, username, avatar_url, bio, created_at, is_team, is_admin, is_owner, rating_team, rating_ffa")
     .eq("username", username)
     .single();
 
@@ -28,35 +40,5 @@ export default async function ProfilePage({ params }: PageProps) {
 
   const isOwnProfile = user?.id === profile.id;
 
-  const joined = new Date(profile.created_at).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
-
-  return (
-    <main className="profile-page">
-      <div className="profile-card">
-        <div className="profile-banner" />
-        <img
-          src={profile.avatar_url || "/default-avatar.svg"}
-          alt={`${profile.username}'s avatar`}
-          className="profile-avatar"
-        />
-        <h1>{profile.username}</h1>
-        <p className="profile-joined">Member since {joined}</p>
-        {profile.bio && <p className="profile-bio">{profile.bio}</p>}
-
-        {isOwnProfile && (
-          <Link href="/profile/edit" className="profile-edit-btn">
-            Edit profile
-          </Link>
-        )}
-      </div>
-
-      <div style={{ maxWidth: "700px", margin: "1.5rem auto 0" }}>
-        <h2 style={{ marginBottom: "0.75rem" }}>Match History</h2>
-        <PlayerMatchHistory username={profile.username} />
-      </div>
-    </main>
-  );
+  return <ProfileView profile={profile as ProfileData} isOwnProfile={isOwnProfile} />;
 }

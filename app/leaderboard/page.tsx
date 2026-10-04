@@ -2,12 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  Search, Flame, Medal, Swords, Download, Flag, Trash2, Plus, Check, X, ChevronLeft, ChevronRight, Trophy,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import "@/app/leaderboard.css";
 import TankSpinner from "@/components/TankSpinner";
 import { logAdminAction } from "@/lib/auditLog";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { restoreMatchFromTrash } from "@/lib/matchTrash";
+import { C } from "@/lib/theme";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 type Match = {
   id: string;
@@ -35,9 +40,146 @@ type StatRow = {
 type SortKey = "wins" | "winrate" | "rating" | "matches";
 type DateRange = "all" | "week" | "month";
 
+// Same width as the homepage sections.
+const WRAP = "mx-auto max-w-[1312px] px-6 md:px-16";
+const WIN_TEXT = C.radar;
+const LOSS_TEXT = "#F87171"; // readable red on the dark panels
+const DANGER = "#DC2626";
+const PODIUM = [C.amber, "#C9CCC0", "#B87333"]; // gold, silver, bronze
+const MIN_MATCHES_FOR_RANK = 3;
+
+// Everything players see, in both languages. Arabic needs a native review.
+const TEXT = {
+  en: {
+    eyebrow: "Ranked ladder",
+    title: "Leaderboard",
+    sub: (n: number) => `Ratings update after every match. Play ${n} matches to earn an official rank.`,
+    team: "Team",
+    ffa: "FFA",
+    allSizes: "All sizes",
+    search: "Search player",
+    all: "All time",
+    month: "This month",
+    week: "This week",
+    sortRating: "Sort by rating",
+    sortWins: "Sort by wins",
+    sortWinrate: "Sort by win rate",
+    sortMatches: "Sort by matches played",
+    player: "Player",
+    rating: "Rating",
+    w: "W",
+    l: "L",
+    winRate: "Win %",
+    loading: "Loading leaderboard…",
+    emptyRanked: (n: number) => `No players have reached ${n} matches yet in this view.`,
+    provisional: "Provisional",
+    provisionalHint: (n: number) => `Needs ${n} matches to hold an official rank`,
+    recent: "Recent matches",
+    emptyMatches: "No matches logged yet in this view.",
+    winners: "Winners",
+    losers: "Losers",
+    replay: "Download replay",
+    addReplay: "Replay",
+    addReplayTitle: "Add a replay",
+    report: "Report this match",
+    del: "Delete match",
+    prev: "Previous",
+    next: "Next",
+    veteran: "Veteran",
+    active: "Active",
+    streak: (n: number) => `${n}-win streak`,
+    played: (n: number) => `${n} matches played`,
+    replayLink: "Replay link",
+    chooseFile: "Choose file",
+    save: "Save",
+    saving: "Saving…",
+    cancel: "Cancel",
+    noMap: "Unknown map",
+    loginToReport: "Please log in to report a match.",
+    reportTitle: "Report this match",
+    reportMessage: "Tell the admins what's wrong with this result so they can review it.",
+    reportPlaceholder: "e.g. wrong winner, suspected cheating",
+    reportSend: "Send report",
+    reportFail: "Couldn't submit the report:",
+    reportOk: "Report submitted. An admin will review this match.",
+  },
+  ar: {
+    eyebrow: "التصنيف التنافسي",
+    title: "لوحة الصدارة",
+    sub: (n: number) => `يتحدّث التقييم بعد كل مباراة. العب ${n} مباريات لتحصل على ترتيب رسمي.`,
+    team: "الفرق",
+    ffa: "FFA",
+    allSizes: "كل الأحجام",
+    search: "ابحث عن لاعب",
+    all: "كل الأوقات",
+    month: "هذا الشهر",
+    week: "هذا الأسبوع",
+    sortRating: "ترتيب حسب التقييم",
+    sortWins: "حسب الانتصارات",
+    sortWinrate: "حسب نسبة الفوز",
+    sortMatches: "حسب عدد المباريات",
+    player: "اللاعب",
+    rating: "التقييم",
+    w: "ف",
+    l: "خ",
+    winRate: "نسبة الفوز",
+    loading: "جارٍ تحميل لوحة الصدارة…",
+    emptyRanked: (n: number) => `لم يصل أي لاعب إلى ${n} مباريات بعد في هذا العرض.`,
+    provisional: "ترتيب مؤقت",
+    provisionalHint: (n: number) => `يحتاج ${n} مباريات للحصول على ترتيب رسمي`,
+    recent: "آخر المباريات",
+    emptyMatches: "لا توجد مباريات مسجّلة بعد في هذا العرض.",
+    winners: "الفائزون",
+    losers: "الخاسرون",
+    replay: "تحميل الإعادة",
+    addReplay: "إعادة",
+    addReplayTitle: "إضافة إعادة",
+    report: "الإبلاغ عن المباراة",
+    del: "حذف المباراة",
+    prev: "السابق",
+    next: "التالي",
+    veteran: "مخضرم",
+    active: "نشط",
+    streak: (n: number) => `سلسلة من ${n} انتصارات`,
+    played: (n: number) => `${n} مباراة`,
+    replayLink: "رابط الإعادة",
+    chooseFile: "اختر ملفاً",
+    save: "حفظ",
+    saving: "جارٍ الحفظ…",
+    cancel: "إلغاء",
+    noMap: "خريطة غير معروفة",
+    loginToReport: "سجّل الدخول للإبلاغ عن مباراة.",
+    reportTitle: "الإبلاغ عن هذه المباراة",
+    reportMessage: "أخبر المشرفين بالخطأ في هذه النتيجة لكي يراجعوها.",
+    reportPlaceholder: "مثال: فائز خاطئ، اشتباه غش",
+    reportSend: "إرسال البلاغ",
+    reportFail: "تعذّر إرسال البلاغ:",
+    reportOk: "تم إرسال البلاغ. سيراجع أحد المشرفين هذه المباراة.",
+  },
+};
+
+const CONTROL =
+  "min-h-[44px] border border-[#8A6425] bg-[#12150E] px-3 text-sm text-[#EDEAE0] transition-colors focus:border-[#E8A63D]";
+
+function Avatar({ src, size, ring }: { src: string | null | undefined; size: number; ring?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src || "/default-avatar.svg"}
+      alt=""
+      className="shrink-0 rounded-full object-cover"
+      style={{ width: size, height: size, border: ring ? `2px solid ${ring}` : `1px solid ${C.line}` }}
+    />
+  );
+}
+
 export default function LeaderboardPage() {
   const supabase = createClient();
   const fb = useFeedback();
+  const { locale } = useLanguage();
+  const lang = locale === "ar" ? "ar" : "en";
+  const tx = TEXT[lang];
+
   const [view, setView] = useState<"team" | "ffa">("team");
   const [teamSizeFilter, setTeamSizeFilter] = useState<"all" | "2v2" | "3v3" | "4v4">("all");
   const [matches, setMatches] = useState<Match[]>([]);
@@ -145,8 +287,10 @@ export default function LeaderboardPage() {
         .select(`username, ${column}`)
         .in("username", usernames);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const foundInProfiles = new Set((currentProfiles ?? []).map((p: any) => p.username));
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const p of (currentProfiles ?? []) as any[]) {
         const delta = matchToDelete.rating_changes[p.username] ?? 0;
         const revertedRating = (p[column] ?? 1000) - delta;
@@ -160,6 +304,7 @@ export default function LeaderboardPage() {
           .select(`name, ${column}`)
           .in("name", guestUsernames);
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const g of (currentGuests ?? []) as any[]) {
           const delta = matchToDelete.rating_changes[g.name] ?? 0;
           const revertedRating = (g[column] ?? 1000) - delta;
@@ -203,16 +348,16 @@ export default function LeaderboardPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      fb.info("Please log in to report a match.");
+      fb.info(tx.loginToReport);
       return;
     }
 
     const reason = await fb.prompt({
-      title: "Report this match",
-      message: "Tell the admins what's wrong with this result so they can review it.",
-      placeholder: "e.g. wrong winner, suspected cheating",
+      title: tx.reportTitle,
+      message: tx.reportMessage,
+      placeholder: tx.reportPlaceholder,
       multiline: true,
-      confirmLabel: "Send report",
+      confirmLabel: tx.reportSend,
     });
     if (!reason || !reason.trim()) return;
 
@@ -223,9 +368,9 @@ export default function LeaderboardPage() {
     });
 
     if (error) {
-      fb.error(`Couldn't submit the report: ${error.message}`);
+      fb.error(`${tx.reportFail} ${error.message}`);
     } else {
-      fb.success("Report submitted. An admin will review this match.");
+      fb.success(tx.reportOk);
     }
   }
 
@@ -301,15 +446,15 @@ export default function LeaderboardPage() {
   const filtered = viewFiltered;
 
   function timeAgo(dateStr: string): string {
-    const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-    if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"} ago`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
-    return new Date(dateStr).toLocaleDateString();
+    const diff = Math.round((new Date(dateStr).getTime() - Date.now()) / 1000);
+    if (!Number.isFinite(diff)) return "";
+    const rtf = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
+    const abs = Math.abs(diff);
+    if (abs < 60) return rtf.format(diff, "second");
+    if (abs < 3600) return rtf.format(Math.round(diff / 60), "minute");
+    if (abs < 86400) return rtf.format(Math.round(diff / 3600), "hour");
+    if (abs < 86400 * 30) return rtf.format(Math.round(diff / 86400), "day");
+    return new Date(dateStr).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { month: "short", day: "numeric", year: "numeric" });
   }
 
   const stats = new Map<string, StatRow>();
@@ -364,716 +509,571 @@ export default function LeaderboardPage() {
     return bRate - aRate || a.username.localeCompare(b.username);
   });
 
-  const MIN_MATCHES_FOR_RANK = 3;
   const qualifiedRanked = ranked.filter((p) => p.wins + p.losses >= MIN_MATCHES_FOR_RANK);
   const provisionalRanked = ranked.filter((p) => p.wins + p.losses < MIN_MATCHES_FOR_RANK);
 
-  return (
-    <main className="leaderboard-page">
-      <div className="leaderboard-container">
-        <h1>Leaderboard</h1>
+  // Top three get a podium when we're looking at the whole ladder (not a search result).
+  const showPodium = !search.trim() && qualifiedRanked.length >= 3;
+  const podium = showPodium ? qualifiedRanked.slice(0, 3) : [];
+  const tableRows = showPodium ? qualifiedRanked.slice(3) : qualifiedRanked;
+  const tableOffset = showPodium ? 3 : 0;
 
-        <div style={{ display: "flex", gap: "1.5rem", marginBottom: "1rem", borderBottom: "1px solid #222" }}>
-          {(["team", "ffa"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => { setView(v); setMatchesPage(1); }}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: "0.5rem 0.25rem",
-                fontFamily: "inherit",
-                textTransform: "uppercase",
-                fontSize: "0.9rem",
-                letterSpacing: "0.05em",
-                color: view === v ? "#f5a623" : "#888",
-                fontWeight: view === v ? 700 : 400,
-                borderBottom: view === v ? "2px solid #f5a623" : "2px solid transparent",
-                marginBottom: "-1px",
-              }}
-            >
-              {v === "team" ? "Team (2v2/3v3/4v4)" : "FFA"}
-            </button>
-          ))}
-        </div>
+  const totalMatchPages = Math.max(1, Math.ceil(filtered.length / MATCHES_PAGE_SIZE));
 
-        {view === "team" && (
-          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-            {(["all", "2v2", "3v3", "4v4"] as const).map((size) => (
-              <button
-                key={size}
-                onClick={() => { setTeamSizeFilter(size); setMatchesPage(1); }}
-                style={{
-                  background: teamSizeFilter === size ? "#f5a623" : "none",
-                  color: teamSizeFilter === size ? "#000" : "#888",
-                  border: "1px solid #f5a623",
-                  borderRadius: "3px",
-                  padding: "0.2rem 0.6rem",
-                  fontSize: "0.7rem",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  fontWeight: teamSizeFilter === size ? 700 : 400,
-                }}
-              >
-                {size === "all" ? "All sizes" : size}
-              </button>
-            ))}
-          </div>
+  function Badges({ p }: { p: StatRow }) {
+    const total = p.wins + p.losses;
+    return (
+      <>
+        {p.streak >= 3 && (
+          <span
+            title={tx.streak(p.streak)}
+            aria-label={tx.streak(p.streak)}
+            className="inline-flex shrink-0 items-center gap-1 text-xs"
+            style={{ color: C.amber }}
+          >
+            <Flame size={14} aria-hidden="true" />
+            {p.streak}
+          </span>
         )}
+        {total >= 30 ? (
+          <span
+            title={tx.played(total)}
+            className="inline-flex shrink-0 items-center gap-1 border px-1.5 py-0.5 text-[11px] uppercase tracking-wider"
+            style={{ color: C.amber, borderColor: C.amberDim }}
+          >
+            <Medal size={12} aria-hidden="true" />
+            {tx.veteran}
+          </span>
+        ) : total >= 15 ? (
+          <span
+            title={tx.played(total)}
+            className="inline-flex shrink-0 items-center gap-1 border px-1.5 py-0.5 text-[11px] uppercase tracking-wider"
+            style={{ color: C.radar, borderColor: "rgba(143,191,79,0.45)" }}
+          >
+            <Swords size={12} aria-hidden="true" />
+            {tx.active}
+          </span>
+        ) : null}
+      </>
+    );
+  }
 
-        <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-          <input
-            type="text"
-            placeholder="Search player..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              background: "#131313",
-              border: "1px solid #333",
-              color: "#eee",
-              padding: "0.4rem 0.6rem",
-              fontFamily: "inherit",
-              flex: "1 1 180px",
-            }}
-          />
-          <select
-            value={dateRange}
-            onChange={(e) => { setDateRange(e.target.value as DateRange); setMatchesPage(1); }}
-            style={{ background: "#131313", border: "1px solid #333", color: "#f5a623", padding: "0.4rem 0.6rem", fontFamily: "inherit" }}
-          >
-            <option value="all">All time</option>
-            <option value="month">This month</option>
-            <option value="week">This week</option>
-          </select>
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-            style={{ background: "#131313", border: "1px solid #333", color: "#f5a623", padding: "0.4rem 0.6rem", fontFamily: "inherit" }}
-          >
-            <option value="wins">Sort: Wins</option>
-            <option value="winrate">Sort: Win %</option>
-            <option value="rating">Sort: Rating</option>
-            <option value="matches">Sort: Matches played</option>
-          </select>
+  const ROW_GRID = "grid grid-cols-[44px_1fr_72px] items-center gap-3 sm:grid-cols-[56px_1fr_88px_56px_56px_72px]";
+
+  function LadderRow({ p, rank, provisional }: { p: StatRow; rank: number; provisional?: boolean }) {
+    const total = p.wins + p.losses;
+    const winRate = total > 0 ? Math.round((p.wins / total) * 100) : 0;
+    return (
+      <Link
+        href={`/profile/${p.username}`}
+        className={`${ROW_GRID} bg-[#12150E] px-4 py-3 transition-colors hover:bg-[#171B10]`}
+      >
+        <span className="cz-display text-lg tabular-nums" style={{ color: provisional ? C.muted : C.paper, fontWeight: 600 }}>
+          {provisional ? (
+            <span className="font-sans text-xs" title={tx.provisionalHint(MIN_MATCHES_FOR_RANK)}>
+              {total}/{MIN_MATCHES_FOR_RANK}
+            </span>
+          ) : (
+            rank
+          )}
+        </span>
+        <span className="flex min-w-0 items-center gap-3">
+          <Avatar src={p.avatar_url} size={32} />
+          <span className="min-w-0">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-[15px]" style={{ color: C.paper, fontWeight: 500 }}>
+                {p.username}
+              </span>
+              {!provisional && <Badges p={p} />}
+            </span>
+            <span className="mt-0.5 block text-xs tabular-nums sm:hidden" style={{ color: C.muted }}>
+              {p.wins}
+              {tx.w} {p.losses}
+              {tx.l} · {winRate}%
+            </span>
+          </span>
+        </span>
+        <span className="text-end text-base tabular-nums" style={{ color: provisional ? C.muted : C.amber, fontWeight: 600 }}>
+          {p.rating}
+        </span>
+        <span className="hidden text-end text-sm tabular-nums sm:block" style={{ color: WIN_TEXT }}>
+          {p.wins}
+        </span>
+        <span className="hidden text-end text-sm tabular-nums sm:block" style={{ color: LOSS_TEXT }}>
+          {p.losses}
+        </span>
+        <span className="hidden text-end text-sm tabular-nums sm:block" style={{ color: C.paper }}>
+          {winRate}%
+        </span>
+      </Link>
+    );
+  }
+
+  function TableHead() {
+    return (
+      <div className={`${ROW_GRID} px-4 py-2 text-[11px] uppercase tracking-[0.18em]`} style={{ color: C.muted }}>
+        <span>#</span>
+        <span>{tx.player}</span>
+        <span className="text-end">{tx.rating}</span>
+        <span className="hidden text-end sm:block">{tx.w}</span>
+        <span className="hidden text-end sm:block">{tx.l}</span>
+        <span className="hidden text-end sm:block">{tx.winRate}</span>
+      </div>
+    );
+  }
+
+  return (
+    <main className="min-h-screen w-full pb-24" style={{ background: C.void, color: C.paper }}>
+      {/* Page header */}
+      <header className="border-b" style={{ borderColor: C.line }}>
+        <div className={`${WRAP} pb-10 pt-14 md:pb-12 md:pt-20`}>
+          <div className="flex items-center gap-2.5 text-[11px] uppercase tracking-[0.24em]" style={{ color: C.radar }}>
+            <Trophy size={14} aria-hidden="true" />
+            {tx.eyebrow}
+          </div>
+          <h1 className="cz-display mt-3 text-5xl uppercase leading-none md:text-7xl" style={{ fontWeight: 700 }}>
+            {tx.title}
+          </h1>
+          <p className="mt-4 max-w-xl text-base leading-relaxed" style={{ color: C.muted }}>
+            {tx.sub(MIN_MATCHES_FOR_RANK)}
+          </p>
+        </div>
+      </header>
+
+      <div className={WRAP}>
+        {/* Controls */}
+        <div className="sticky top-0 z-10 -mx-2 mt-8 px-2 py-3" style={{ background: "rgba(10,12,8,0.92)", backdropFilter: "blur(6px)" }}>
+          <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
+            <div role="tablist" aria-label={tx.title} className="flex gap-6 border-b" style={{ borderColor: C.line }}>
+              {(["team", "ffa"] as const).map((v) => (
+                <button
+                  key={v}
+                  role="tab"
+                  aria-selected={view === v}
+                  onClick={() => { setView(v); setMatchesPage(1); }}
+                  className="cz-display -mb-px min-h-[44px] border-b-2 px-1 text-lg uppercase tracking-wide transition-colors"
+                  style={{
+                    color: view === v ? C.amber : C.muted,
+                    borderColor: view === v ? C.amber : "transparent",
+                    fontWeight: 600,
+                  }}
+                >
+                  {v === "team" ? tx.team : tx.ffa}
+                </button>
+              ))}
+            </div>
+
+            {view === "team" && (
+              <div className="flex flex-wrap gap-2">
+                {(["all", "2v2", "3v3", "4v4"] as const).map((size) => (
+                  <button
+                    key={size}
+                    aria-pressed={teamSizeFilter === size}
+                    onClick={() => { setTeamSizeFilter(size); setMatchesPage(1); }}
+                    className="min-h-[36px] border px-3 text-xs uppercase tracking-widest transition-colors"
+                    style={{
+                      background: teamSizeFilter === size ? C.amber : "transparent",
+                      color: teamSizeFilter === size ? C.void : C.paper,
+                      borderColor: teamSizeFilter === size ? C.amber : C.amberDim,
+                      fontWeight: teamSizeFilter === size ? 700 : 500,
+                    }}
+                  >
+                    {size === "all" ? tx.allSizes : size}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <label className="relative flex-[1_1_220px]">
+              <span className="sr-only">{tx.search}</span>
+              <Search
+                size={16}
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 -translate-y-1/2"
+                style={{ insetInlineStart: 12, color: C.muted }}
+              />
+              <input
+                type="search"
+                placeholder={tx.search}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className={`${CONTROL} w-full ps-9`}
+              />
+            </label>
+            <label>
+              <span className="sr-only">{tx.all}</span>
+              <select
+                value={dateRange}
+                onChange={(e) => { setDateRange(e.target.value as DateRange); setMatchesPage(1); }}
+                className={CONTROL}
+              >
+                <option value="all">{tx.all}</option>
+                <option value="month">{tx.month}</option>
+                <option value="week">{tx.week}</option>
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">{tx.sortRating}</span>
+              <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className={CONTROL}>
+                <option value="rating">{tx.sortRating}</option>
+                <option value="wins">{tx.sortWins}</option>
+                <option value="winrate">{tx.sortWinrate}</option>
+                <option value="matches">{tx.sortMatches}</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         {loading ? (
-          <TankSpinner label="Loading leaderboard..." />
+          <div className="py-24">
+            <TankSpinner label={tx.loading} />
+          </div>
         ) : (
           <>
-            <div className="leaderboard-table" style={{ display: "flex", flexDirection: "column" }}>
-              <div
-                className="leaderboard-header-row"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "40px 1fr 70px 50px 50px 70px",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.6rem 0.75rem",
-                }}
-              >
-                <span className="lb-rank" style={{ whiteSpace: "nowrap" }}>#</span>
-                <span className="lb-player" style={{ whiteSpace: "nowrap" }}>Player</span>
-                <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>Rating</span>
-                <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>W</span>
-                <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>L</span>
-                <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>Win %</span>
-              </div>
-
-              {qualifiedRanked.map((p, i) => {
-                const total = p.wins + p.losses;
-                const winRate = total > 0 ? Math.round((p.wins / total) * 100) : 0;
-
-                const podiumStyles = [
-                  {
-                    background: "linear-gradient(90deg, rgba(245,166,35,0.14), rgba(245,166,35,0.02))",
-                    borderLeft: "3px solid #f5a623",
-                  },
-                  {
-                    background: "linear-gradient(90deg, rgba(192,192,192,0.12), rgba(192,192,192,0.02))",
-                    borderLeft: "3px solid #c0c0c0",
-                  },
-                  {
-                    background: "linear-gradient(90deg, rgba(205,127,50,0.12), rgba(205,127,50,0.02))",
-                    borderLeft: "3px solid #cd7f32",
-                  },
-                ];
-                const medal = ["🥇", "🥈", "🥉"];
-
-                return (
-                  <Link
-                    key={p.username}
-                    href={`/profile/${p.username}`}
-                    className="leaderboard-row"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "40px 1fr 70px 50px 50px 70px",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      padding: i < 3 ? "0.8rem 0.75rem" : "0.6rem 0.75rem",
-                      ...(i < 3 ? podiumStyles[i] : {}),
-                    }}
-                  >
-                    <span
-                      className="lb-rank"
-                      style={{ whiteSpace: "nowrap", fontSize: i < 3 ? "1.1rem" : "1rem" }}
+            {/* Podium */}
+            {showPodium && (
+              <section aria-label="Top 3" className="mt-8 grid gap-4 md:grid-cols-3 md:items-end">
+                {podium.map((p, i) => {
+                  const total = p.wins + p.losses;
+                  const winRate = total > 0 ? Math.round((p.wins / total) * 100) : 0;
+                  const order = ["md:order-2", "md:order-1", "md:order-3"][i];
+                  return (
+                    <Link
+                      key={p.username}
+                      href={`/profile/${p.username}`}
+                      className={`${order} group relative block border p-5 transition-colors hover:bg-[#171B10] ${i === 0 ? "md:pb-9 md:pt-8" : ""}`}
+                      style={{ background: C.panel, borderColor: i === 0 ? C.amberDim : C.line, borderTop: `3px solid ${PODIUM[i]}` }}
                     >
-                      {i < 3 ? medal[i] : i + 1}
-                    </span>
-                    <span
-                      className="lb-player"
-                      style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0, overflow: "hidden" }}
-                    >
-                      <img
-                        src={p.avatar_url || "/default-avatar.svg"}
-                        alt={p.username}
-                        className="lb-avatar"
-                        style={{
-                          width: i < 3 ? "34px" : "28px",
-                          height: i < 3 ? "34px" : "28px",
-                          borderRadius: "50%",
-                          objectFit: "cover",
-                          flexShrink: 0,
-                          border: i < 3 ? `2px solid ${["#f5a623", "#c0c0c0", "#cd7f32"][i]}` : "none",
-                        }}
-                      />
-                      <span
-                        style={{
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          fontWeight: i < 3 ? 700 : 400,
-                        }}
-                      >
-                        {p.username}
-                      </span>
-                      {p.streak >= 3 && (
-                        <span style={{ fontSize: "0.75rem", color: "#f97316", flexShrink: 0 }}>🔥{p.streak}</span>
-                      )}
-                      {total >= 30 ? (
-                        <span
-                          title={`${total} matches played`}
-                          style={{
-                            fontSize: "0.65rem",
-                            color: "#c084fc",
-                            border: "1px solid #c084fc",
-                            borderRadius: "3px",
-                            padding: "0.05rem 0.35rem",
-                            flexShrink: 0,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          🎖️ Veteran
+                      <div className="flex items-center gap-4">
+                        <span className="cz-display text-5xl leading-none" style={{ color: PODIUM[i], fontWeight: 700 }}>
+                          {i + 1}
                         </span>
-                      ) : total >= 15 ? (
-                        <span
-                          title={`${total} matches played`}
-                          style={{
-                            fontSize: "0.65rem",
-                            color: "#60a5fa",
-                            border: "1px solid #60a5fa",
-                            borderRadius: "3px",
-                            padding: "0.05rem 0.35rem",
-                            flexShrink: 0,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          ⚔️ Active
-                        </span>
-                      ) : null}
-                    </span>
-                    <span
-                      className="lb-stat"
-                      style={{
-                        whiteSpace: "nowrap",
-                        textAlign: "right",
-                        fontWeight: i < 3 ? 700 : 400,
-                        color: i < 3 ? "#f5a623" : "inherit",
-                      }}
-                    >
-                      {p.rating}
-                    </span>
-                    <span className="lb-stat lb-wins" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.wins}</span>
-                    <span className="lb-stat lb-losses" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.losses}</span>
-                    <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{winRate}%</span>
-                  </Link>
-                );
-              })}
-
-              {qualifiedRanked.length === 0 && (
-                <p className="leaderboard-empty">
-                  No players have reached {MIN_MATCHES_FOR_RANK} matches yet in this view.
-                </p>
-              )}
-            </div>
-
-            {provisionalRanked.length > 0 && (
-              <div style={{ marginTop: "1.5rem" }}>
-                <p style={{ fontSize: "0.75rem", opacity: 0.6, marginBottom: "0.5rem" }}>
-                  Provisional — needs {MIN_MATCHES_FOR_RANK} matches to hold an official rank
-                </p>
-                <div className="leaderboard-table" style={{ display: "flex", flexDirection: "column", opacity: 0.7 }}>
-                  {provisionalRanked.map((p) => {
-                    const total = p.wins + p.losses;
-                    const winRate = total > 0 ? Math.round((p.wins / total) * 100) : 0;
-                    return (
-                      <Link
-                        key={p.username}
-                        href={`/profile/${p.username}`}
-                        className="leaderboard-row"
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "40px 1fr 70px 50px 50px 70px",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                          padding: "0.5rem 0.75rem",
-                        }}
-                      >
-                        <span className="lb-rank" style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>
-                          {total}/{MIN_MATCHES_FOR_RANK}
-                        </span>
-                        <span
-                          className="lb-player"
-                          style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0, overflow: "hidden" }}
-                        >
-                          <img
-                            src={p.avatar_url || "/default-avatar.svg"}
-                            alt={p.username}
-                            className="lb-avatar"
-                            style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                          />
-                          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: "0.9rem" }}>
+                        <Avatar src={p.avatar_url} size={i === 0 ? 56 : 48} ring={PODIUM[i]} />
+                        <div className="min-w-0">
+                          <div className="truncate text-lg" style={{ color: C.paper, fontWeight: 600 }}>
                             {p.username}
-                          </span>
-                        </span>
-                        <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.rating}</span>
-                        <span className="lb-stat lb-wins" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.wins}</span>
-                        <span className="lb-stat lb-losses" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{p.losses}</span>
-                        <span className="lb-stat" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{winRate}%</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <Badges p={p} />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-5 flex items-end justify-between gap-4 border-t pt-4" style={{ borderColor: C.line }}>
+                        <div>
+                          <div className="text-[11px] uppercase tracking-[0.18em]" style={{ color: C.muted }}>
+                            {tx.rating}
+                          </div>
+                          <div className="cz-display text-3xl leading-none tabular-nums" style={{ color: C.amber, fontWeight: 700 }}>
+                            {p.rating}
+                          </div>
+                        </div>
+                        <div className="text-end text-sm tabular-nums" style={{ color: C.muted }}>
+                          <span style={{ color: WIN_TEXT }}>{p.wins}{tx.w}</span>{" "}
+                          <span style={{ color: LOSS_TEXT }}>{p.losses}{tx.l}</span>
+                          <div style={{ color: C.paper }}>{winRate}%</div>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </section>
             )}
 
-            <h2 style={{ marginTop: "2rem" }}>Recent Matches</h2>
+            {/* Ladder */}
+            <section className="mt-8">
+              {tableRows.length > 0 && <TableHead />}
+              <div className="flex flex-col gap-px border" style={{ background: C.line, borderColor: C.line }}>
+                {tableRows.map((p, i) => (
+                  <LadderRow key={p.username} p={p} rank={i + 1 + tableOffset} />
+                ))}
+              </div>
+              {qualifiedRanked.length === 0 && (
+                <p className="border px-4 py-10 text-center text-sm" style={{ borderColor: C.line, color: C.muted, background: C.panel }}>
+                  {tx.emptyRanked(MIN_MATCHES_FOR_RANK)}
+                </p>
+              )}
+            </section>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "32px 1fr 1fr 140px auto auto auto auto",
-                alignItems: "center",
-                gap: "1rem",
-                padding: "0.5rem 1rem",
-                fontSize: "0.7rem",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "#666",
-                borderBottom: "1px solid #222",
-                marginBottom: "0.4rem",
-                width: "100%",
-                boxSizing: "border-box",
-              }}
-            >
-              <span>#</span>
-              <span>Teams</span>
-              <span></span>
-              <span>Map</span>
-              <span style={{ textAlign: "center" }}>Type</span>
-              <span style={{ textAlign: "right" }}>Time</span>
-              <span style={{ textAlign: "center" }}>Replay</span>
-              <span style={{ textAlign: "center" }}>Report</span>
-            </div>
+            {/* Provisional */}
+            {provisionalRanked.length > 0 && (
+              <section className="mt-12">
+                <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h2 className="cz-display text-2xl uppercase" style={{ fontWeight: 600 }}>
+                    {tx.provisional}
+                  </h2>
+                  <span className="text-sm" style={{ color: C.muted }}>
+                    {tx.provisionalHint(MIN_MATCHES_FOR_RANK)}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-px border" style={{ background: C.line, borderColor: C.line }}>
+                  {provisionalRanked.map((p) => (
+                    <LadderRow key={p.username} p={p} rank={0} provisional />
+                  ))}
+                </div>
+              </section>
+            )}
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", width: "100%" }}>
-              {filtered.slice((matchesPage - 1) * MATCHES_PAGE_SIZE, matchesPage * MATCHES_PAGE_SIZE).map((m, idx) => {
-                const losers = m.participants.filter((p) => !m.winners.includes(p));
-                const rowNumber = (matchesPage - 1) * MATCHES_PAGE_SIZE + idx + 1;
+            {/* Recent matches */}
+            <section className="mt-16">
+              <h2 className="cz-display mb-5 text-3xl uppercase md:text-4xl" style={{ fontWeight: 600 }}>
+                {tx.recent}
+              </h2>
 
-                const renderPlayer = (username: string, won: boolean) => (
-                  <div key={username} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <img
-                      src={profiles[username]?.avatar_url || "/default-avatar.svg"}
-                      alt={username}
-                      style={{ width: "22px", height: "22px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                    />
-                    <span style={{ fontSize: "0.85rem", color: "#eee", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {username}
-                    </span>
-                    {m.rating_changes && username in m.rating_changes && (
-                      <span
-                        style={{
-                          fontSize: "0.7rem",
-                          fontWeight: 700,
-                          color: won ? "#22c55e" : "#ef4444",
-                          background: won ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
-                          borderRadius: "3px",
-                          padding: "0.1rem 0.4rem",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {m.rating_changes[username] >= 0 ? "+" : ""}
-                        {m.rating_changes[username]}
+              <div className="flex flex-col gap-3">
+                {filtered.slice((matchesPage - 1) * MATCHES_PAGE_SIZE, matchesPage * MATCHES_PAGE_SIZE).map((m, idx) => {
+                  const losers = m.participants.filter((p) => !m.winners.includes(p));
+                  const rowNumber = (matchesPage - 1) * MATCHES_PAGE_SIZE + idx + 1;
+
+                  const renderPlayer = (username: string, won: boolean) => (
+                    <Link
+                      key={username}
+                      href={`/profile/${username}`}
+                      className="flex min-h-[32px] items-center gap-2.5 hover:underline"
+                    >
+                      <Avatar src={profiles[username]?.avatar_url} size={24} />
+                      <span className="min-w-0 flex-1 truncate text-sm" style={{ color: C.paper }}>
+                        {username}
                       </span>
-                    )}
-                    <span style={{ color: won ? "#22c55e" : "#ef4444", fontSize: "0.8rem", flexShrink: 0 }}>
-                      {won ? "✓" : "✕"}
-                    </span>
-                  </div>
-                );
-
-                return (
-                  <div key={m.id} style={{ width: "100%" }}>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "32px 1fr 1fr 140px auto auto auto auto",
-                      alignItems: "center",
-                      gap: "1rem",
-                      padding: "0.85rem 1rem",
-                      background: rowNumber % 2 === 0 ? "#12161c" : "#0d1015",
-                      border: "1px solid #222",
-                      borderRadius: "6px",
-                      flexWrap: "wrap",
-                      width: "100%",
-                      boxSizing: "border-box",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: "26px",
-                        height: "26px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background: "#1c222b",
-                        borderRadius: "4px",
-                        fontSize: "0.7rem",
-                        color: "#888",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {rowNumber}
-                    </span>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "0.3rem",
-                        background: "rgba(34,197,94,0.06)",
-                        border: "1px solid rgba(34,197,94,0.4)",
-                        borderRadius: "4px",
-                        padding: "0.5rem 0.75rem",
-                        minWidth: "180px",
-                      }}
-                    >
-                      {m.winners.map((w) => renderPlayer(w, true))}
-                    </div>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "0.3rem",
-                        background: "rgba(239,68,68,0.05)",
-                        border: "1px solid rgba(239,68,68,0.3)",
-                        borderRadius: "4px",
-                        padding: "0.5rem 0.75rem",
-                        minWidth: "180px",
-                      }}
-                    >
-                      {losers.length > 0 ? losers.map((l) => renderPlayer(l, false)) : (
-                        <span style={{ fontSize: "0.8rem", opacity: 0.4 }}>—</span>
-                      )}
-                    </div>
-
-                    <span
-                      style={{
-                        fontSize: "0.8rem",
-                        color: "#ccc",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                      title={m.map ?? undefined}
-                    >
-                      {m.map || "—"}
-                    </span>
-
-                    <span
-                      style={{
-                        fontSize: "0.7rem",
-                        textTransform: "uppercase",
-                        color: "#f5a623",
-                        border: "1px solid #f5a623",
-                        borderRadius: "3px",
-                        padding: "0.15rem 0.4rem",
-                        whiteSpace: "nowrap",
-                        justifySelf: "center",
-                      }}
-                    >
-                      {m.mode}
-                    </span>
-
-                    <span style={{ fontSize: "0.75rem", opacity: 0.55, whiteSpace: "nowrap", textAlign: "right" }}>
-                      {timeAgo(m.created_at)}
-                    </span>
-
-                    {m.replay_url ? (
-                      <a
-                        href={m.replay_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Download replay"
-                        style={{ color: "#f5a623", fontSize: "1rem", textDecoration: "none", justifySelf: "center" }}
-                      >
-                        ⬇
-                      </a>
-                    ) : isAdmin ? (
-                      <button
-                        onClick={() => startEditingReplay(m.id)}
-                        title="Add a replay"
-                        style={{
-                          background: "none",
-                          border: "1px dashed #444",
-                          color: "#666",
-                          borderRadius: "3px",
-                          padding: "0.1rem 0.4rem",
-                          fontSize: "0.65rem",
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        + Replay
-                      </button>
-                    ) : (
-                      <span style={{ opacity: 0.2, fontSize: "1rem", justifySelf: "center" }}>—</span>
-                    )}
-
-                    <div style={{ display: "flex", gap: "0.4rem", justifyContent: "center", alignItems: "center" }}>
-                      <button
-                        onClick={() => handleReportMatch(m.id)}
-                        title="Report this match"
-                        style={{
-                          background: "none",
-                          border: "1px solid #666",
-                          color: "#888",
-                          borderRadius: "3px",
-                          padding: "0.15rem 0.4rem",
-                          fontSize: "0.8rem",
-                          cursor: "pointer",
-                          lineHeight: 1,
-                        }}
-                      >
-                        🚩
-                      </button>
-
-                      {isAdmin && (
-                        <button
-                          onClick={() => handleDeleteMatch(m.id)}
+                      {m.rating_changes && username in m.rating_changes && (
+                        <span
+                          className="shrink-0 px-1.5 py-0.5 text-xs tabular-nums"
                           style={{
-                            background: "none",
-                            border: "1px solid #ef4444",
-                            color: "#ef4444",
-                            borderRadius: "3px",
-                            padding: "0.15rem 0.5rem",
-                            fontSize: "0.7rem",
-                            cursor: "pointer",
-                            whiteSpace: "nowrap",
+                            fontWeight: 700,
+                            color: won ? WIN_TEXT : LOSS_TEXT,
+                            background: won ? "rgba(143,191,79,0.12)" : "rgba(248,113,113,0.12)",
                           }}
                         >
-                          Delete
-                        </button>
+                          {m.rating_changes[username] >= 0 ? "+" : ""}
+                          {m.rating_changes[username]}
+                        </span>
                       )}
-                    </div>
-                  </div>
-
-                  {m.tournament_name && (
-                    <p style={{ fontSize: "0.7rem", opacity: 0.5, marginTop: "0.25rem", marginLeft: "3rem" }}>
-                      {m.tournament_name}
-                      {m.round ? ` · ${m.round}` : ""}
-                    </p>
-                  )}
-
-                  {editingReplayId === m.id && (
-                    <div
-                      style={{
-                        marginTop: "0.4rem",
-                        padding: "0.6rem",
-                        border: "1px dashed #f5a623",
-                        borderRadius: "4px",
-                        background: "#111",
-                        display: "flex",
-                        gap: "0.5rem",
-                        flexWrap: "wrap",
-                        alignItems: "center",
-                      }}
-                    >
-                      <input
-                        type="text"
-                        placeholder="Replay link"
-                        value={editReplayLink}
-                        onChange={(e) => {
-                          setEditReplayLink(e.target.value);
-                          if (e.target.value) setEditReplayFile(null);
-                        }}
-                        disabled={!!editReplayFile}
-                        style={{
-                          flex: "1 1 180px",
-                          background: "#131313",
-                          border: "1px solid #333",
-                          color: editReplayFile ? "#666" : "#eee",
-                          padding: "0.35rem 0.6rem",
-                          fontFamily: "inherit",
-                          fontSize: "0.8rem",
-                        }}
-                      />
-                      <input
-                        type="file"
-                        id={`replay-edit-${m.id}`}
-                        accept=".rep,.zip"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] ?? null;
-                          setEditReplayFile(file);
-                          if (file) setEditReplayLink("");
-                        }}
-                        style={{ display: "none" }}
-                      />
-                      <label
-                        htmlFor={`replay-edit-${m.id}`}
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "#f5a623",
-                          border: "1px solid #f5a623",
-                          borderRadius: "3px",
-                          padding: "0.35rem 0.6rem",
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {editReplayFile ? editReplayFile.name : "Choose file"}
-                      </label>
-                      <button
-                        onClick={() => saveReplayForMatch(m.id)}
-                        disabled={savingReplay}
-                        style={{
-                          fontSize: "0.75rem",
-                          background: "#f5a623",
-                          color: "#000",
-                          border: "none",
-                          borderRadius: "3px",
-                          padding: "0.35rem 0.7rem",
-                          cursor: "pointer",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {savingReplay ? "Saving..." : "Save"}
-                      </button>
-                      <button
-                        onClick={cancelEditingReplay}
-                        style={{
-                          fontSize: "0.75rem",
-                          background: "none",
-                          color: "#888",
-                          border: "1px solid #444",
-                          borderRadius: "3px",
-                          padding: "0.35rem 0.7rem",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                  </div>
-                );
-              })}
-
-              {filtered.length === 0 && (
-                <p className="leaderboard-empty">No matches logged yet in this view.</p>
-              )}
-            </div>
-
-            {filtered.length > MATCHES_PAGE_SIZE && (
-              <div style={{ display: "flex", justifyContent: "center", gap: "0.4rem", flexWrap: "wrap", marginTop: "1rem" }}>
-                {(() => {
-                  const totalMatchPages = Math.max(1, Math.ceil(filtered.length / MATCHES_PAGE_SIZE));
-                  const pageNumbers: (number | "...")[] = [];
-                  const neighbors = 1;
-                  for (let p = 1; p <= totalMatchPages; p++) {
-                    if (p === 1 || p === totalMatchPages || (p >= matchesPage - neighbors && p <= matchesPage + neighbors)) {
-                      pageNumbers.push(p);
-                    } else if (pageNumbers[pageNumbers.length - 1] !== "...") {
-                      pageNumbers.push("...");
-                    }
-                  }
+                    </Link>
+                  );
 
                   return (
-                    <>
-                      <button
-                        onClick={() => setMatchesPage((p) => Math.max(1, p - 1))}
-                        disabled={matchesPage === 1}
-                        style={{
-                          padding: "0.4rem 0.8rem",
-                          fontSize: "0.75rem",
-                          background: "none",
-                          border: "1px solid #444",
-                          color: matchesPage === 1 ? "#444" : "#eee",
-                          cursor: matchesPage === 1 ? "default" : "pointer",
-                          borderRadius: "3px",
-                        }}
+                    <article key={m.id} className="border" style={{ background: C.panel, borderColor: C.line }}>
+                      <header
+                        className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-2.5"
+                        style={{ borderColor: C.line }}
                       >
-                        ← Prev
-                      </button>
-
-                      {pageNumbers.map((p, i) =>
-                        p === "..." ? (
-                          <span key={`ellipsis-${i}`} style={{ padding: "0.4rem 0.4rem", fontSize: "0.75rem", opacity: 0.5 }}>
-                            …
+                        <span className="text-xs tabular-nums" style={{ color: C.muted }}>
+                          #{rowNumber}
+                        </span>
+                        <span
+                          className="border px-2 py-0.5 text-[11px] uppercase tracking-widest"
+                          style={{ color: C.amber, borderColor: C.amberDim }}
+                        >
+                          {m.mode}
+                        </span>
+                        <span className="min-w-0 truncate text-sm" style={{ color: C.paper }} title={m.map ?? undefined}>
+                          {m.map || tx.noMap}
+                        </span>
+                        {m.tournament_name && (
+                          <span className="text-xs" style={{ color: C.muted }}>
+                            {m.tournament_name}
+                            {m.round ? ` · ${m.round}` : ""}
                           </span>
-                        ) : (
+                        )}
+                        <span className="ms-auto flex items-center gap-1">
+                          <span className="me-2 text-xs" style={{ color: C.muted }}>
+                            {timeAgo(m.created_at)}
+                          </span>
+                          {m.replay_url ? (
+                            <a
+                              href={m.replay_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={tx.replay}
+                              aria-label={tx.replay}
+                              className="inline-flex h-9 w-9 items-center justify-center transition-colors hover:bg-[#171B10]"
+                              style={{ color: C.amber }}
+                            >
+                              <Download size={17} aria-hidden="true" />
+                            </a>
+                          ) : isAdmin ? (
+                            <button
+                              onClick={() => startEditingReplay(m.id)}
+                              title={tx.addReplayTitle}
+                              className="inline-flex h-9 items-center gap-1 border border-dashed px-2 text-xs transition-colors hover:bg-[#171B10]"
+                              style={{ borderColor: C.lineStrong, color: C.muted }}
+                            >
+                              <Plus size={14} aria-hidden="true" />
+                              {tx.addReplay}
+                            </button>
+                          ) : null}
                           <button
-                            key={p}
-                            onClick={() => setMatchesPage(p)}
-                            style={{
-                              padding: "0.4rem 0.7rem",
-                              fontSize: "0.75rem",
-                              background: p === matchesPage ? "#f5a623" : "none",
-                              color: p === matchesPage ? "#000" : "#eee",
-                              border: "1px solid #444",
-                              fontWeight: p === matchesPage ? 700 : 400,
-                              cursor: "pointer",
-                              borderRadius: "3px",
-                            }}
+                            onClick={() => handleReportMatch(m.id)}
+                            title={tx.report}
+                            aria-label={tx.report}
+                            className="inline-flex h-9 w-9 items-center justify-center transition-colors hover:bg-[#171B10]"
+                            style={{ color: C.muted }}
                           >
-                            {p}
+                            <Flag size={16} aria-hidden="true" />
                           </button>
-                        )
-                      )}
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleDeleteMatch(m.id)}
+                              title={tx.del}
+                              aria-label={tx.del}
+                              className="inline-flex h-9 w-9 items-center justify-center transition-colors hover:bg-[rgba(220,38,38,0.12)]"
+                              style={{ color: LOSS_TEXT }}
+                            >
+                              <Trash2 size={16} aria-hidden="true" />
+                            </button>
+                          )}
+                        </span>
+                      </header>
 
-                      <button
-                        onClick={() => setMatchesPage((p) => Math.min(totalMatchPages, p + 1))}
-                        disabled={matchesPage === totalMatchPages}
-                        style={{
-                          padding: "0.4rem 0.8rem",
-                          fontSize: "0.75rem",
-                          background: "none",
-                          border: "1px solid #444",
-                          color: matchesPage === totalMatchPages ? "#444" : "#eee",
-                          cursor: matchesPage === totalMatchPages ? "default" : "pointer",
-                          borderRadius: "3px",
-                        }}
-                      >
-                        Next →
-                      </button>
-                    </>
+                      <div className="grid gap-px sm:grid-cols-2" style={{ background: C.line }}>
+                        <div className="p-4" style={{ background: C.panel, borderInlineStart: `3px solid ${WIN_TEXT}` }}>
+                          <div className="mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em]" style={{ color: WIN_TEXT }}>
+                            <Check size={13} aria-hidden="true" />
+                            {tx.winners}
+                          </div>
+                          <div className="flex flex-col gap-1">{m.winners.map((w) => renderPlayer(w, true))}</div>
+                        </div>
+                        <div className="p-4" style={{ background: C.panel, borderInlineStart: `3px solid ${C.lineStrong}` }}>
+                          <div className="mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em]" style={{ color: C.muted }}>
+                            <X size={13} aria-hidden="true" />
+                            {tx.losers}
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            {losers.length > 0 ? (
+                              losers.map((l) => renderPlayer(l, false))
+                            ) : (
+                              <span className="text-sm" style={{ color: C.muted }}>
+                                —
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {editingReplayId === m.id && (
+                        <div className="flex flex-wrap items-center gap-2 border-t p-4" style={{ borderColor: C.line }}>
+                          <label className="flex-[1_1_220px]">
+                            <span className="sr-only">{tx.replayLink}</span>
+                            <input
+                              type="text"
+                              placeholder={tx.replayLink}
+                              value={editReplayLink}
+                              onChange={(e) => {
+                                setEditReplayLink(e.target.value);
+                                if (e.target.value) setEditReplayFile(null);
+                              }}
+                              disabled={!!editReplayFile}
+                              className={`${CONTROL} w-full disabled:opacity-50`}
+                            />
+                          </label>
+                          <input
+                            type="file"
+                            id={`replay-edit-${m.id}`}
+                            accept=".rep,.zip"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] ?? null;
+                              setEditReplayFile(file);
+                              if (file) setEditReplayLink("");
+                            }}
+                            className="sr-only"
+                          />
+                          <label
+                            htmlFor={`replay-edit-${m.id}`}
+                            className="inline-flex min-h-[44px] cursor-pointer items-center border px-4 text-sm"
+                            style={{ color: C.amber, borderColor: C.amberDim }}
+                          >
+                            {editReplayFile ? editReplayFile.name : tx.chooseFile}
+                          </label>
+                          <button
+                            onClick={() => saveReplayForMatch(m.id)}
+                            disabled={savingReplay}
+                            className="min-h-[44px] px-5 text-sm uppercase tracking-widest disabled:opacity-60"
+                            style={{ background: C.amber, color: C.void, fontWeight: 700 }}
+                          >
+                            {savingReplay ? tx.saving : tx.save}
+                          </button>
+                          <button
+                            onClick={cancelEditingReplay}
+                            className="min-h-[44px] border px-4 text-sm"
+                            style={{ borderColor: C.lineStrong, color: C.muted }}
+                          >
+                            {tx.cancel}
+                          </button>
+                        </div>
+                      )}
+                    </article>
                   );
-                })()}
+                })}
+
+                {filtered.length === 0 && (
+                  <p className="border px-4 py-10 text-center text-sm" style={{ borderColor: C.line, color: C.muted, background: C.panel }}>
+                    {tx.emptyMatches}
+                  </p>
+                )}
               </div>
-            )}
+
+              {filtered.length > MATCHES_PAGE_SIZE && (
+                <nav aria-label={tx.recent} className="mt-6 flex flex-wrap items-center justify-center gap-1.5">
+                  {(() => {
+                    const pageNumbers: (number | "...")[] = [];
+                    const neighbors = 1;
+                    for (let p = 1; p <= totalMatchPages; p++) {
+                      if (p === 1 || p === totalMatchPages || (p >= matchesPage - neighbors && p <= matchesPage + neighbors)) {
+                        pageNumbers.push(p);
+                      } else if (pageNumbers[pageNumbers.length - 1] !== "...") {
+                        pageNumbers.push("...");
+                      }
+                    }
+                    const btn = "inline-flex min-h-[40px] min-w-[40px] items-center justify-center gap-1 border px-3 text-sm transition-colors";
+                    return (
+                      <>
+                        <button
+                          onClick={() => setMatchesPage((p) => Math.max(1, p - 1))}
+                          disabled={matchesPage === 1}
+                          className={`${btn} hover:bg-[#171B10] disabled:opacity-40 disabled:hover:bg-transparent`}
+                          style={{ borderColor: C.amberDim, color: C.paper }}
+                        >
+                          <ChevronLeft size={16} className="rtl:-scale-x-100" aria-hidden="true" />
+                          {tx.prev}
+                        </button>
+                        {pageNumbers.map((p, i) =>
+                          p === "..." ? (
+                            <span key={`ellipsis-${i}`} className="px-1 text-sm" style={{ color: C.muted }}>
+                              …
+                            </span>
+                          ) : (
+                            <button
+                              key={p}
+                              onClick={() => setMatchesPage(p)}
+                              aria-current={p === matchesPage ? "page" : undefined}
+                              className={`${btn} tabular-nums`}
+                              style={{
+                                background: p === matchesPage ? C.amber : "transparent",
+                                color: p === matchesPage ? C.void : C.paper,
+                                borderColor: p === matchesPage ? C.amber : C.amberDim,
+                                fontWeight: p === matchesPage ? 700 : 400,
+                              }}
+                            >
+                              {p}
+                            </button>
+                          )
+                        )}
+                        <button
+                          onClick={() => setMatchesPage((p) => Math.min(totalMatchPages, p + 1))}
+                          disabled={matchesPage === totalMatchPages}
+                          className={`${btn} hover:bg-[#171B10] disabled:opacity-40 disabled:hover:bg-transparent`}
+                          style={{ borderColor: C.amberDim, color: C.paper }}
+                        >
+                          {tx.next}
+                          <ChevronRight size={16} className="rtl:-scale-x-100" aria-hidden="true" />
+                        </button>
+                      </>
+                    );
+                  })()}
+                </nav>
+              )}
+            </section>
           </>
         )}
       </div>

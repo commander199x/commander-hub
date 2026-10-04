@@ -1,0 +1,1277 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
+import {
+  Share2, Pencil, Trophy, Swords, Flame, Crown, Target, Globe, Map as MapIcon, Archive, Medal, Award, Zap, Star,
+  Lock, Skull, Handshake, Download, CalendarDays, ShieldCheck, Check, TrendingUp, Gamepad2,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { C } from "@/lib/theme";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+
+export type ProfileData = {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  bio: string | null;
+  created_at: string;
+  is_team?: boolean | null;
+  is_admin?: boolean | null;
+  is_owner?: boolean | null;
+  rating_team?: number | null;
+  rating_ffa?: number | null;
+};
+
+type Match = {
+  id: string;
+  mode: string;
+  participants: string[] | null;
+  winners: string[] | null;
+  map: string | null;
+  created_at: string;
+  rating_changes: Record<string, number> | null;
+  replay_url: string | null;
+  tournament_name: string | null;
+  round: string | null;
+};
+type View = "team" | "ffa";
+type Point = { t: string; r: number; d: number; map: string | null; won: boolean | null };
+
+const WRAP = "mx-auto max-w-[1312px] px-6 md:px-16";
+const PAGE = 1000;
+const MIN_MATCHES_FOR_RANK = 3; // same rule as the leaderboard
+const WIN = C.radar;
+const LOSS = "#F87171";
+const HISTORY_STEP = 10;
+
+// ---------- military ranks by rating ----------
+const TIERS = [
+  { min: -Infinity, en: "Private", ar: "جندي" },
+  { min: 900, en: "Corporal", ar: "عريف" },
+  { min: 1000, en: "Sergeant", ar: "رقيب" },
+  { min: 1100, en: "Lieutenant", ar: "ملازم" },
+  { min: 1200, en: "Captain", ar: "نقيب" },
+  { min: 1300, en: "Major", ar: "رائد" },
+  { min: 1400, en: "Colonel", ar: "عقيد" },
+  { min: 1500, en: "Brigadier General", ar: "عميد" },
+  { min: 1600, en: "General", ar: "لواء" },
+  { min: 1700, en: "Commander", ar: "قائد" },
+];
+function tierIndex(r: number) {
+  let i = 0;
+  for (let k = 0; k < TIERS.length; k++) if (r >= TIERS[k].min) i = k;
+  return i;
+}
+
+// ---------- text (Arabic needs a native review) ----------
+const TEXT = {
+  en: {
+    eyebrow: "Commander profile",
+    memberSince: (d: string) => `Member since ${d}`,
+    edit: "Edit profile",
+    share: "Share",
+    copied: "Link copied",
+    teamRank: (n: number) => `#${n} Team ladder`,
+    ffaRank: (n: number) => `#${n} FFA ladder`,
+    unranked: "Unranked",
+    owner: "Owner",
+    admin: "Admin",
+    teamBadge: "Team",
+    teamRating: "Team rating",
+    ffaRating: "FFA rating",
+    matches: "Matches",
+    winRate: "Win rate",
+    streak: "Current streak",
+    bestStreak: "Best win streak",
+    peak: "Peak rating",
+    W: "W",
+    L: "L",
+    ratingHistory: "Rating history",
+    teamTab: "Team",
+    ffaTab: "FFA",
+    chartEmpty: "Play a ranked match to start the chart.",
+    tier: "Rank",
+    nextTier: (n: number, name: string) => `${n} points to ${name}`,
+    maxTier: "Highest rank reached",
+    form: "Recent form",
+    formEmpty: "No matches yet.",
+    maps: "Favourite maps",
+    modes: "Game modes",
+    games: (n: number) => `${n} ${n === 1 ? "game" : "games"}`,
+    rival: "Nemesis",
+    ally: "Best teammate",
+    together: (n: number) => `${n} ${n === 1 ? "win" : "wins"} together`,
+    none: "Not enough matches yet.",
+    medals: "Medals",
+    unlocked: (n: number, t: number) => `${n} of ${t} unlocked`,
+    history: "Match history",
+    all: "All",
+    victory: "Victory",
+    defeat: "Defeat",
+    with: "With",
+    against: "Against",
+    replay: "Replay",
+    loadMore: "Load more",
+    noMatches: "No matches in this view yet.",
+    unknownMap: "Unknown map",
+    loading: "Loading battle record…",
+    start: "Start",
+  },
+  ar: {
+    eyebrow: "ملف القائد",
+    memberSince: (d: string) => `عضو منذ ${d}`,
+    edit: "تعديل الملف",
+    share: "مشاركة",
+    copied: "تم نسخ الرابط",
+    teamRank: (n: number) => `#${n} في تصنيف الفرق`,
+    ffaRank: (n: number) => `#${n} في تصنيف FFA`,
+    unranked: "غير مصنّف",
+    owner: "المالك",
+    admin: "مشرف",
+    teamBadge: "الفريق",
+    teamRating: "تقييم الفرق",
+    ffaRating: "تقييم FFA",
+    matches: "المباريات",
+    winRate: "نسبة الفوز",
+    streak: "السلسلة الحالية",
+    bestStreak: "أفضل سلسلة انتصارات",
+    peak: "أعلى تقييم",
+    W: "ف",
+    L: "خ",
+    ratingHistory: "تطور التقييم",
+    teamTab: "الفرق",
+    ffaTab: "FFA",
+    chartEmpty: "العب مباراة مصنّفة لبدء الرسم البياني.",
+    tier: "الرتبة",
+    nextTier: (n: number, name: string) => `${n} نقطة للوصول إلى ${name}`,
+    maxTier: "وصلت إلى أعلى رتبة",
+    form: "الأداء الأخير",
+    formEmpty: "لا توجد مباريات بعد.",
+    maps: "الخرائط المفضلة",
+    modes: "أنماط اللعب",
+    games: (n: number) => `${n} مباراة`,
+    rival: "الخصم اللدود",
+    ally: "أفضل زميل",
+    together: (n: number) => `${n} انتصارات معاً`,
+    none: "لا توجد مباريات كافية بعد.",
+    medals: "الأوسمة",
+    unlocked: (n: number, t: number) => `${n} من ${t} مفتوحة`,
+    history: "سجل المباريات",
+    all: "الكل",
+    victory: "انتصار",
+    defeat: "هزيمة",
+    with: "مع",
+    against: "ضد",
+    replay: "الإعادة",
+    loadMore: "عرض المزيد",
+    noMatches: "لا توجد مباريات في هذا العرض بعد.",
+    unknownMap: "خريطة غير معروفة",
+    loading: "جارٍ تحميل السجل القتالي…",
+    start: "البداية",
+  },
+};
+
+const MEDALS = [
+  { id: "first_win", icon: Swords, en: ["First Blood", "Win your first match"], ar: ["أول دم", "اربح أول مباراة"] },
+  { id: "wins10", icon: Award, en: ["Battle-Hardened", "Win 10 matches"], ar: ["صلب المعارك", "اربح 10 مباريات"] },
+  { id: "wins50", icon: Medal, en: ["War Hero", "Win 50 matches"], ar: ["بطل حرب", "اربح 50 مباراة"] },
+  { id: "games30", icon: ShieldCheck, en: ["Veteran", "Play 30 matches"], ar: ["مخضرم", "العب 30 مباراة"] },
+  { id: "games100", icon: Star, en: ["Centurion", "Play 100 matches"], ar: ["قائد المئة", "العب 100 مباراة"] },
+  { id: "streak5", icon: Flame, en: ["Hot Streak", "Win 5 in a row"], ar: ["سلسلة نارية", "اربح 5 مباريات متتالية"] },
+  { id: "streak10", icon: Zap, en: ["Unstoppable", "Win 10 in a row"], ar: ["لا يُوقف", "اربح 10 مباريات متتالية"] },
+  { id: "maps10", icon: Globe, en: ["Globetrotter", "Play on 10 different maps"], ar: ["رحّالة", "العب على 10 خرائط مختلفة"] },
+  { id: "mapMaster", icon: Target, en: ["Map Master", "Win 10 matches on one map"], ar: ["سيد الخريطة", "اربح 10 مباريات على خريطة واحدة"] },
+  { id: "tournament", icon: Trophy, en: ["Tournament Contender", "Play a tournament match"], ar: ["منافس البطولات", "العب مباراة في بطولة"] },
+  { id: "top3", icon: Crown, en: ["High Command", "Reach the Team top 3"], ar: ["القيادة العليا", "ادخل أفضل 3 في تصنيف الفرق"] },
+  { id: "replay", icon: Archive, en: ["Archivist", "Play a match that has a replay"], ar: ["أمين الأرشيف", "العب مباراة لها إعادة"] },
+] as const;
+
+// ---------- animations ----------
+const PROFILE_CSS = `
+@keyframes czp-spin { to { transform: rotate(360deg); } }
+@keyframes czp-up { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes czp-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes czp-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes czp-pop { 0% { opacity: 0; transform: scale(0.4); } 70% { transform: scale(1.12); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes czp-shine { from { transform: translateX(-120%) skewX(-20deg); } to { transform: translateX(220%) skewX(-20deg); } }
+@keyframes czp-sweep { to { transform: rotate(360deg); } }
+@keyframes czp-shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+.czp-ring { animation: czp-spin 6s linear infinite; }
+.czp-reveal { opacity: 0; transform: translateY(22px); }
+.czp-reveal.is-in { animation: czp-up 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.czp-line { stroke-dasharray: 1; stroke-dashoffset: 1; }
+.is-in .czp-line { animation: czp-draw 1.6s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards; }
+.czp-area { opacity: 0; }
+.is-in .czp-area { animation: czp-fade 1s ease 0.9s forwards; }
+.czp-bar { transform-origin: left; transform: scaleX(0); transition: transform 1s cubic-bezier(0.2, 0.7, 0.2, 1); }
+[dir="rtl"] .czp-bar { transform-origin: right; }
+.is-in .czp-bar { transform: scaleX(1); }
+.czp-pill { opacity: 0; }
+.is-in .czp-pill { animation: czp-pop 0.4s ease-out both; }
+.czp-medal { position: relative; overflow: hidden; transition: transform 0.25s ease, border-color 0.25s ease; }
+.czp-medal.unlocked:hover { transform: translateY(-3px); border-color: #8A6425 !important; }
+.czp-medal.unlocked::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 40%; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(232,166,61,0.22), transparent); transform: translateX(-120%) skewX(-20deg);
+}
+.czp-medal.unlocked:hover::after { animation: czp-shine 0.9s ease; }
+.czp-parallax { transition: transform 0.4s ease-out; transform: translate3d(calc(var(--px, 0) * 18px), calc(var(--py, 0) * 12px), 0); }
+.czp-parallax-2 { transition: transform 0.4s ease-out; transform: translate3d(calc(var(--px, 0) * -10px), calc(var(--py, 0) * -6px), 0); }
+.czp-sweep { animation: czp-sweep 7s linear infinite; }
+.czp-shimmer { background: linear-gradient(90deg, #12150E 0%, #1d2215 50%, #12150E 100%); background-size: 200% 100%; animation: czp-shimmer 1.4s linear infinite; }
+.czp-row { transition: background-color 0.2s ease, transform 0.2s ease; }
+.czp-row:hover { background-color: #171B10 !important; }
+@media (prefers-reduced-motion: reduce) {
+  .czp-ring, .czp-sweep, .czp-shimmer { animation: none !important; }
+  .czp-reveal { opacity: 1 !important; transform: none !important; animation: none !important; }
+  .czp-line { stroke-dasharray: none !important; stroke-dashoffset: 0 !important; animation: none !important; }
+  .czp-area, .czp-pill { opacity: 1 !important; animation: none !important; }
+  .czp-bar { transform: scaleX(1) !important; transition: none !important; }
+  .czp-parallax, .czp-parallax-2 { transform: none !important; }
+  .czp-medal.unlocked:hover::after { animation: none !important; }
+}
+`;
+
+// ---------- small helpers ----------
+function reducedMotion() {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+}
+
+function useInView<T extends Element>() {
+  const ref = useRef<T>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) {
+          setInView(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return [ref, inView] as const;
+}
+
+function Reveal({ children, className = "", delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
+  const [ref, inView] = useInView<HTMLDivElement>();
+  return (
+    <div ref={ref} className={`czp-reveal ${inView ? "is-in" : ""} ${className}`} style={{ animationDelay: `${delay}s` }}>
+      {children}
+    </div>
+  );
+}
+
+function CountUp({ value, run, suffix = "" }: { value: number; run: boolean; suffix?: string }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (!run) return;
+    if (reducedMotion()) {
+      setShown(value);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const from = 0;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / 1100);
+      setShown(Math.round(from + (value - from) * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, run]);
+  return (
+    <>
+      {shown.toLocaleString("en")}
+      {suffix}
+    </>
+  );
+}
+
+function Avatar({ src, size, className = "" }: { src: string | null | undefined; size: number; className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src || "/default-avatar.svg"}
+      alt=""
+      className={`shrink-0 rounded-full object-cover ${className}`}
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
+function Insignia({ tier, size = 28 }: { tier: number; size?: number }) {
+  // Chevrons for the lower ranks, stars for officers and generals.
+  const stars = tier >= 5;
+  const count = stars ? tier - 4 : Math.max(1, tier + 1);
+  return (
+    <svg width={size * (stars ? Math.max(1, count * 0.75) : 1)} height={size} viewBox={stars ? `0 0 ${count * 18} 24` : "0 0 24 24"} aria-hidden="true">
+      {stars
+        ? Array.from({ length: count }).map((_, i) => (
+            <path
+              key={i}
+              transform={`translate(${i * 18} 3)`}
+              d="M9 0l2.6 5.6 6.1.7-4.5 4.2 1.2 6L9 13.5 3.6 16.5l1.2-6L.3 6.3l6.1-.7z"
+              fill={C.amber}
+            />
+          ))
+        : Array.from({ length: count }).map((_, i) => (
+            <path
+              key={i}
+              d={`M4 ${18 - i * 4.2} L12 ${12 - i * 4.2} L20 ${18 - i * 4.2}`}
+              fill="none"
+              stroke={C.amber}
+              strokeWidth="2.6"
+              strokeLinecap="square"
+            />
+          ))}
+    </svg>
+  );
+}
+
+function SectionTitle({ icon: Icon, children, right }: { icon: typeof Trophy; children: ReactNode; right?: ReactNode }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <h2 className="cz-display flex items-center gap-2.5 text-2xl uppercase" style={{ fontWeight: 600 }}>
+        <Icon size={18} style={{ color: C.amber }} aria-hidden="true" />
+        {children}
+      </h2>
+      {right}
+    </div>
+  );
+}
+
+const PANEL = "border p-5 md:p-6";
+
+// ---------- rating chart ----------
+function RatingChart({ points, emptyText, lang, startLabel }: { points: Point[]; emptyText: string; lang: "en" | "ar"; startLabel: string }) {
+  const [ref, inView] = useInView<HTMLDivElement>();
+  const [hover, setHover] = useState<number | null>(null);
+  const W = 800;
+  const H = 260;
+  const PADX = 44;
+  const PADY = 22;
+
+  if (points.length < 2) {
+    return (
+      <div className="flex h-[220px] items-center justify-center text-sm" style={{ color: C.muted }}>
+        {emptyText}
+      </div>
+    );
+  }
+
+  const rs = points.map((p) => p.r);
+  let lo = Math.min(...rs);
+  let hi = Math.max(...rs);
+  if (hi - lo < 40) {
+    lo -= 20;
+    hi += 20;
+  }
+  const pad = (hi - lo) * 0.12;
+  lo -= pad;
+  hi += pad;
+  const x = (i: number) => PADX + (i * (W - PADX * 2)) / (points.length - 1);
+  const y = (r: number) => PADY + ((hi - r) * (H - PADY * 2)) / (hi - lo);
+  const line = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p.r).toFixed(1)}`).join(" ");
+  const area = `${line} L${x(points.length - 1).toFixed(1)},${H - PADY} L${x(0).toFixed(1)},${H - PADY} Z`;
+  const ticks = [0, 1, 2, 3].map((k) => Math.round(hi - ((hi - lo) * k) / 3));
+  const peakI = rs.indexOf(Math.max(...rs));
+
+  function onMove(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const fx = (e.clientX - rect.left) / rect.width; // chart is always left-to-right (time axis)
+    const vx = fx * W;
+    const i = Math.round(((vx - PADX) / (W - PADX * 2)) * (points.length - 1));
+    setHover(Math.max(0, Math.min(points.length - 1, i)));
+  }
+
+  const hp = hover !== null ? points[hover] : null;
+
+  return (
+    <div ref={ref} className={`relative ${inView ? "is-in" : ""}`} dir="ltr">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="block w-full"
+        style={{ height: "auto" }}
+        onMouseMove={onMove}
+        onMouseLeave={() => setHover(null)}
+        role="img"
+        aria-label={`Rating from ${points[0].r} to ${points[points.length - 1].r}, peak ${Math.max(...rs)}`}
+      >
+        <defs>
+          <linearGradient id="czp-area-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={C.amber} stopOpacity="0.28" />
+            <stop offset="1" stopColor={C.amber} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {ticks.map((tk) => (
+          <g key={tk}>
+            <line x1={PADX} x2={W - PADX} y1={y(tk)} y2={y(tk)} stroke={C.line} strokeDasharray="3 5" />
+            <text x={PADX - 8} y={y(tk) + 4} textAnchor="end" fontSize="11" fill={C.muted}>
+              {tk}
+            </text>
+          </g>
+        ))}
+        <path d={area} fill="url(#czp-area-grad)" className="czp-area" />
+        <path d={line} fill="none" stroke={C.amber} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" pathLength={1} className="czp-line" />
+        {/* peak marker */}
+        <g className="czp-area">
+          <circle cx={x(peakI)} cy={y(rs[peakI])} r="5" fill={C.void} stroke={C.amber} strokeWidth="2" />
+          <text x={x(peakI)} y={y(rs[peakI]) - 11} textAnchor="middle" fontSize="11" fontWeight="700" fill={C.amber}>
+            {rs[peakI]}
+          </text>
+        </g>
+        {hp && hover !== null && (
+          <g>
+            <line x1={x(hover)} x2={x(hover)} y1={PADY} y2={H - PADY} stroke={C.lineStrong} />
+            <circle cx={x(hover)} cy={y(hp.r)} r="6" fill={hp.won === null ? C.muted : hp.won ? WIN : LOSS} stroke={C.void} strokeWidth="2" />
+          </g>
+        )}
+      </svg>
+
+      {hp && hover !== null && (
+        <div
+          className="pointer-events-none absolute top-2 z-10 min-w-[150px] -translate-x-1/2 border px-3 py-2 text-xs"
+          style={{
+            left: `${(x(hover) / W) * 100}%`,
+            background: "rgba(10,12,8,0.95)",
+            borderColor: C.amberDim,
+            color: C.paper,
+          }}
+          dir={lang === "ar" ? "rtl" : "ltr"}
+        >
+          <div className="cz-display text-xl leading-none" style={{ color: C.amber, fontWeight: 700 }}>
+            {hp.r}
+            {hp.d !== 0 && (
+              <span className="ms-2 text-sm" style={{ color: hp.d > 0 ? WIN : LOSS }}>
+                {hp.d > 0 ? "+" : ""}
+                {hp.d}
+              </span>
+            )}
+          </div>
+          <div className="mt-1" style={{ color: C.muted }}>
+            {hover === 0 ? startLabel : new Date(hp.t).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { month: "short", day: "numeric", year: "numeric" })}
+          </div>
+          {hp.map && hover !== 0 && <div className="truncate" style={{ color: C.paper }}>{hp.map}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- main view ----------
+export default function ProfileView({ profile, isOwnProfile }: { profile: ProfileData; isOwnProfile: boolean }) {
+  const { locale } = useLanguage();
+  const lang = locale === "ar" ? "ar" : "en";
+  const tx = TEXT[lang];
+  const me = profile.username;
+
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [ratings, setRatings] = useState<Record<string, { team: number; ffa: number }>>({});
+  const [avatars, setAvatars] = useState<Record<string, string | null>>({});
+  const [loading, setLoading] = useState(true);
+  const [chartView, setChartView] = useState<View>("team");
+  const [histFilter, setHistFilter] = useState<"all" | View>("all");
+  const [histShown, setHistShown] = useState(HISTORY_STEP);
+  const [copied, setCopied] = useState(false);
+  const heroRef = useRef<HTMLElement>(null);
+  const [statsRef, statsIn] = useInView<HTMLDivElement>();
+  const [formRef, formIn] = useInView<HTMLDivElement>();
+  const [mapsRef, mapsIn] = useInView<HTMLDivElement>();
+
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+    (async () => {
+      const all: Match[] = [];
+      for (let from = 0; from < 50_000; from += PAGE) {
+        const { data, error } = await supabase
+          .from("matches")
+          .select("id, mode, participants, winners, map, created_at, rating_changes, replay_url, tournament_name, round")
+          .order("created_at", { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error) {
+          console.warn("[profile] could not read matches:", error.message);
+          break;
+        }
+        const rows = (data ?? []) as Match[];
+        all.push(...rows);
+        if (rows.length < PAGE) break;
+      }
+      const [{ data: profs }, { data: guests }] = await Promise.all([
+        supabase.from("profiles").select("username, avatar_url, rating_team, rating_ffa"),
+        supabase.from("guest_ratings").select("name, rating_team, rating_ffa"),
+      ]);
+      // Same order as the leaderboard: profiles first, guest ratings on top.
+      const rmap: Record<string, { team: number; ffa: number }> = {};
+      const amap: Record<string, string | null> = {};
+      for (const p of (profs ?? []) as { username: string; avatar_url: string | null; rating_team: number | null; rating_ffa: number | null }[]) {
+        rmap[p.username] = { team: p.rating_team ?? 1000, ffa: p.rating_ffa ?? 1000 };
+        amap[p.username] = p.avatar_url;
+      }
+      for (const g of (guests ?? []) as { name: string; rating_team: number | null; rating_ffa: number | null }[]) {
+        rmap[g.name] = { team: g.rating_team ?? 1000, ffa: g.rating_ffa ?? 1000 };
+      }
+      if (!cancelled) {
+        setMatches(all);
+        setRatings(rmap);
+        setAvatars(amap);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const teamRating = Math.round(profile.rating_team ?? 1000);
+  const ffaRating = Math.round(profile.rating_ffa ?? 1000);
+
+  const s = useMemo(() => {
+    const mine = matches.filter((m) => (m.participants ?? []).includes(me)); // newest first
+    const won = (m: Match) => (m.winners ?? []).includes(me);
+    const wins = mine.filter(won).length;
+    const games = mine.length;
+
+    // streaks
+    let current = 0;
+    if (mine.length) {
+      const first = won(mine[0]);
+      for (const m of mine) {
+        if (won(m) !== first) break;
+        current++;
+      }
+      if (!first) current = -current;
+    }
+    let best = 0;
+    let run = 0;
+    for (const m of [...mine].reverse()) {
+      run = won(m) ? run + 1 : 0;
+      best = Math.max(best, run);
+    }
+
+    // rating history (walk back from the current rating using each match's change)
+    function history(view: View): Point[] {
+      const list = mine.filter((m) => (m.mode === "ffa") === (view === "ffa"));
+      let after = view === "team" ? teamRating : ffaRating;
+      const pts: Point[] = [];
+      for (const m of list) {
+        const d = Math.round(m.rating_changes?.[me] ?? 0);
+        pts.push({ t: m.created_at, r: Math.round(after), d, map: m.map, won: won(m) });
+        after -= d;
+      }
+      pts.push({ t: list.length ? list[list.length - 1].created_at : profile.created_at, r: Math.round(after), d: 0, map: null, won: null });
+      return pts.reverse();
+    }
+    const histTeam = history("team");
+    const histFfa = history("ffa");
+    const peak = Math.max(teamRating, ...histTeam.map((p) => p.r), ...histFfa.map((p) => p.r));
+
+    // ladder rank, same rules as the leaderboard (all time, 3+ matches, by rating)
+    function rankIn(view: View): number | null {
+      const counts = new Map<string, number>();
+      for (const m of matches) {
+        if ((m.mode === "ffa") !== (view === "ffa")) continue;
+        for (const p of m.participants ?? []) counts.set(p, (counts.get(p) ?? 0) + 1);
+      }
+      if ((counts.get(me) ?? 0) < MIN_MATCHES_FOR_RANK) return null;
+      const list = Array.from(counts.entries())
+        .filter(([, n]) => n >= MIN_MATCHES_FOR_RANK)
+        .map(([name]) => ({ name, r: (view === "team" ? ratings[name]?.team : ratings[name]?.ffa) ?? 1000 }))
+        .sort((a, b) => b.r - a.r || a.name.localeCompare(b.name));
+      const i = list.findIndex((x) => x.name === me);
+      return i >= 0 ? i + 1 : null;
+    }
+    const teamRank = rankIn("team");
+    const ffaRank = rankIn("ffa");
+
+    // maps & modes
+    const mapStats = new Map<string, { g: number; w: number }>();
+    const modeStats = new Map<string, { g: number; w: number }>();
+    for (const m of mine) {
+      const w = won(m) ? 1 : 0;
+      if (m.map) {
+        const e = mapStats.get(m.map) ?? { g: 0, w: 0 };
+        mapStats.set(m.map, { g: e.g + 1, w: e.w + w });
+      }
+      const e2 = modeStats.get(m.mode) ?? { g: 0, w: 0 };
+      modeStats.set(m.mode, { g: e2.g + 1, w: e2.w + w });
+    }
+    const topMaps = Array.from(mapStats.entries()).sort((a, b) => b[1].g - a[1].g || a[0].localeCompare(b[0])).slice(0, 5);
+    const modes = ["2v2", "3v3", "4v4", "ffa"].map((k) => [k, modeStats.get(k) ?? { g: 0, w: 0 }] as const).filter(([, v]) => v.g > 0);
+
+    // nemesis & best teammate
+    const rivals = new Map<string, { g: number; w: number }>();
+    const allies = new Map<string, { g: number; w: number }>();
+    for (const m of mine) {
+      const iWon = won(m);
+      for (const p of m.participants ?? []) {
+        if (p === me) continue;
+        const theyWon = (m.winners ?? []).includes(p);
+        const same = m.mode !== "ffa" && theyWon === iWon;
+        const target = same ? allies : rivals;
+        const e = target.get(p) ?? { g: 0, w: 0 };
+        target.set(p, { g: e.g + 1, w: e.w + (iWon ? 1 : 0) });
+      }
+    }
+    const pick = (mp: Map<string, { g: number; w: number }>) =>
+      Array.from(mp.entries()).filter(([, v]) => v.g >= 2).sort((a, b) => b[1].g - a[1].g || a[0].localeCompare(b[0]))[0] ?? null;
+    const rival = pick(rivals);
+    const ally = pick(allies);
+
+    // medals
+    const bestMapWins = Math.max(0, ...Array.from(mapStats.values()).map((v) => v.w));
+    const medal: Record<string, { ok: boolean; have: number; need: number }> = {
+      first_win: { ok: wins >= 1, have: wins, need: 1 },
+      wins10: { ok: wins >= 10, have: wins, need: 10 },
+      wins50: { ok: wins >= 50, have: wins, need: 50 },
+      games30: { ok: games >= 30, have: games, need: 30 },
+      games100: { ok: games >= 100, have: games, need: 100 },
+      streak5: { ok: best >= 5, have: best, need: 5 },
+      streak10: { ok: best >= 10, have: best, need: 10 },
+      maps10: { ok: mapStats.size >= 10, have: mapStats.size, need: 10 },
+      mapMaster: { ok: bestMapWins >= 10, have: bestMapWins, need: 10 },
+      tournament: { ok: mine.some((m) => !!m.tournament_name), have: mine.some((m) => !!m.tournament_name) ? 1 : 0, need: 1 },
+      top3: { ok: teamRank !== null && teamRank <= 3, have: teamRank !== null && teamRank <= 3 ? 1 : 0, need: 1 },
+      replay: { ok: mine.some((m) => !!m.replay_url), have: mine.some((m) => !!m.replay_url) ? 1 : 0, need: 1 },
+    };
+
+    return { mine, wins, games, losses: games - wins, current, best, histTeam, histFfa, peak, teamRank, ffaRank, topMaps, modes, rival, ally, medal };
+  }, [matches, ratings, me, teamRating, ffaRating, profile.created_at]);
+
+  const winRate = s.games ? Math.round((s.wins / s.games) * 100) : 0;
+  const tier = tierIndex(teamRating);
+  const next = TIERS[tier + 1];
+  const tierFloor = Number.isFinite(TIERS[tier].min) ? TIERS[tier].min : teamRating - 100;
+  const tierProgress = next ? Math.max(0, Math.min(1, (teamRating - tierFloor) / (next.min - tierFloor))) : 1;
+  const medalCount = Object.values(s.medal).filter((m) => m.ok).length;
+  const form = s.mine.slice(0, 10).reverse();
+  const histList = s.mine.filter((m) => histFilter === "all" || (m.mode === "ffa") === (histFilter === "ffa"));
+
+  const badge = profile.is_owner
+    ? { label: tx.owner, filled: true, color: C.amber }
+    : profile.is_admin
+      ? { label: tx.admin, filled: false, color: C.amber }
+      : profile.is_team
+        ? { label: tx.teamBadge, filled: false, color: C.radar }
+        : null;
+
+  function onHeroMove(e: React.MouseEvent<HTMLElement>) {
+    const el = heroRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--px", (((e.clientX - r.left) / r.width) * 2 - 1).toFixed(3));
+    el.style.setProperty("--py", (((e.clientY - r.top) / r.height) * 2 - 1).toFixed(3));
+  }
+
+  async function share() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      window.prompt("Copy this link:", window.location.href);
+    }
+  }
+
+  function timeAgo(iso: string) {
+    const diff = Math.round((new Date(iso).getTime() - Date.now()) / 1000);
+    const rtf = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
+    const abs = Math.abs(diff);
+    if (abs < 3600) return rtf.format(Math.round(diff / 60), "minute");
+    if (abs < 86400) return rtf.format(Math.round(diff / 3600), "hour");
+    if (abs < 86400 * 30) return rtf.format(Math.round(diff / 86400), "day");
+    return new Date(iso).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  const joined = new Date(profile.created_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { month: "long", year: "numeric" });
+
+  const statTiles: { label: string; value: number; suffix?: string; color: string; sub?: string }[] = [
+    { label: tx.teamRating, value: teamRating, color: C.amber, sub: s.teamRank ? tx.teamRank(s.teamRank) : tx.unranked },
+    { label: tx.ffaRating, value: ffaRating, color: C.paper, sub: s.ffaRank ? tx.ffaRank(s.ffaRank) : tx.unranked },
+    { label: tx.matches, value: s.games, color: C.paper, sub: `${s.wins}${tx.W} · ${s.losses}${tx.L}` },
+    { label: tx.peak, value: s.peak, color: C.amber },
+    { label: tx.bestStreak, value: s.best, color: WIN },
+  ];
+
+  return (
+    <main className="min-h-screen w-full pb-24" style={{ background: C.void, color: C.paper }}>
+      <style>{PROFILE_CSS}</style>
+
+      {/* ================= HERO ================= */}
+      <section ref={heroRef} onMouseMove={onHeroMove} className="relative overflow-hidden border-b" style={{ borderColor: C.line }}>
+        <div aria-hidden="true" className="absolute inset-0">
+          <div
+            className="czp-parallax absolute -inset-10"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(39,43,30,0.55) 1px, transparent 1px), linear-gradient(90deg, rgba(39,43,30,0.55) 1px, transparent 1px)",
+              backgroundSize: "48px 48px",
+            }}
+          />
+          <div
+            className="czp-parallax-2 absolute -inset-10"
+            style={{
+              background:
+                "radial-gradient(ellipse 45% 70% at 78% 40%, rgba(143,191,79,0.12), transparent 60%), radial-gradient(ellipse 40% 60% at 15% 20%, rgba(232,166,61,0.14), transparent 60%)",
+            }}
+          />
+          {/* big faint radar */}
+          <div className="czp-parallax absolute end-[-8%] top-1/2 hidden h-[560px] w-[560px] -translate-y-1/2 rounded-full md:block" style={{ border: `1px solid rgba(143,191,79,0.22)` }}>
+            <div className="absolute inset-[18%] rounded-full" style={{ border: `1px solid ${C.line}` }} />
+            <div className="absolute inset-[36%] rounded-full" style={{ border: `1px solid ${C.line}` }} />
+            <div className="czp-sweep absolute inset-0 rounded-full" style={{ background: "conic-gradient(from 0deg, rgba(143,191,79,0) 0deg, rgba(143,191,79,0) 300deg, rgba(143,191,79,0.25) 360deg)" }} />
+          </div>
+          <div className="absolute inset-0" style={{ background: `linear-gradient(0deg, ${C.void} 0%, rgba(10,12,8,0) 45%)` }} />
+        </div>
+
+        <div className={`${WRAP} relative pb-12 pt-14 md:pb-16 md:pt-20`}>
+          <div className="flex flex-col gap-8 md:flex-row md:items-end">
+            {/* avatar with rotating ring */}
+            <div className="relative h-40 w-40 shrink-0 md:h-48 md:w-48">
+              <div
+                className="czp-ring absolute -inset-[6px] rounded-full"
+                style={{ background: `conic-gradient(from 0deg, ${C.amber}, transparent 30%, ${C.radar} 50%, transparent 70%, ${C.amber})` }}
+                aria-hidden="true"
+              />
+              <div className="absolute -inset-[2px] rounded-full" style={{ background: C.void }} aria-hidden="true" />
+              <Avatar src={profile.avatar_url} size={192} className="relative h-full w-full" />
+              <div
+                className="absolute -bottom-2 start-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 border px-2.5 py-1 rtl:translate-x-1/2"
+                style={{ background: C.void, borderColor: C.amberDim }}
+                title={`${tx.tier}: ${TIERS[tier][lang]}`}
+              >
+                <Insignia tier={tier} size={16} />
+              </div>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2.5 text-[11px] uppercase tracking-[0.24em]" style={{ color: C.radar }}>
+                <ShieldCheck size={14} aria-hidden="true" />
+                {tx.eyebrow}
+              </div>
+              <h1 className="cz-display mt-2 break-words uppercase leading-[0.9]" style={{ fontSize: "clamp(2.8rem, 7vw, 5.5rem)", fontWeight: 700 }}>
+                {profile.username}
+              </h1>
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                <span className="cz-display text-lg uppercase tracking-wide" style={{ color: C.amber, fontWeight: 600 }}>
+                  {TIERS[tier][lang]}
+                </span>
+                {badge && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] uppercase tracking-widest"
+                    style={{ color: badge.filled ? C.void : badge.color, background: badge.filled ? badge.color : "transparent", border: `1px solid ${badge.color}`, fontWeight: 700 }}
+                  >
+                    {(profile.is_owner || profile.is_admin) && <ShieldCheck size={11} aria-hidden="true" />}
+                    {badge.label}
+                  </span>
+                )}
+                {s.teamRank && (
+                  <span className="inline-flex items-center gap-1.5" style={{ color: C.paper }}>
+                    <Trophy size={14} style={{ color: C.amber }} aria-hidden="true" />
+                    {tx.teamRank(s.teamRank)}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1.5" style={{ color: C.muted }}>
+                  <CalendarDays size={14} aria-hidden="true" />
+                  {tx.memberSince(joined)}
+                </span>
+              </div>
+              {profile.bio && (
+                <p className="mt-4 max-w-2xl whitespace-pre-line text-base leading-relaxed" style={{ color: C.paper }}>
+                  {profile.bio}
+                </p>
+              )}
+            </div>
+
+            <div className="flex shrink-0 flex-wrap gap-3">
+              <button
+                onClick={share}
+                className="inline-flex min-h-[44px] items-center gap-2 border px-4 text-xs uppercase tracking-widest transition-colors hover:bg-[#171B10]"
+                style={{ borderColor: C.amberDim, color: copied ? WIN : C.paper, fontWeight: 600 }}
+                aria-live="polite"
+              >
+                {copied ? <Check size={15} aria-hidden="true" /> : <Share2 size={15} aria-hidden="true" />}
+                {copied ? tx.copied : tx.share}
+              </button>
+              {isOwnProfile && (
+                <Link
+                  href="/profile/edit"
+                  className="inline-flex min-h-[44px] items-center gap-2 px-4 text-xs uppercase tracking-widest"
+                  style={{ background: C.amber, color: C.void, fontWeight: 700 }}
+                >
+                  <Pencil size={15} aria-hidden="true" />
+                  {tx.edit}
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className={`${WRAP} mt-10`}>
+        {/* ================= STATS ================= */}
+        <div ref={statsRef} className="grid grid-cols-2 gap-px border md:grid-cols-3 lg:grid-cols-6" style={{ background: C.line, borderColor: C.line }}>
+          {statTiles.map((st) => (
+            <div key={st.label} className="px-5 py-5" style={{ background: C.panel }}>
+              <div className="text-[11px] uppercase tracking-[0.18em]" style={{ color: C.muted }}>
+                {st.label}
+              </div>
+              <div className="cz-display mt-2 text-4xl leading-none tabular-nums" style={{ color: st.color, fontWeight: 700 }}>
+                {loading ? <span className="czp-shimmer inline-block h-8 w-20 align-middle" /> : <CountUp value={st.value} run={statsIn} suffix={st.suffix} />}
+              </div>
+              {st.sub && !loading && (
+                <div className="mt-2 text-xs" style={{ color: C.muted }}>
+                  {st.sub}
+                </div>
+              )}
+            </div>
+          ))}
+          {/* win-rate ring */}
+          <div className="flex items-center gap-4 px-5 py-5" style={{ background: C.panel }}>
+            <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+              <circle cx="32" cy="32" r="26" fill="none" stroke={C.line} strokeWidth="6" />
+              <circle
+                cx="32" cy="32" r="26" fill="none" stroke={WIN} strokeWidth="6" strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 26}
+                strokeDashoffset={2 * Math.PI * 26 * (1 - (statsIn && !loading ? winRate / 100 : 0))}
+                transform="rotate(-90 32 32)"
+                style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.2, 0.7, 0.2, 1)" }}
+              />
+            </svg>
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.18em]" style={{ color: C.muted }}>
+                {tx.winRate}
+              </div>
+              <div className="cz-display mt-1 text-3xl leading-none tabular-nums" style={{ fontWeight: 700 }}>
+                {loading ? "—" : <CountUp value={winRate} run={statsIn} suffix="%" />}
+              </div>
+              {!loading && s.current !== 0 && (
+                <div className="mt-1.5 inline-flex items-center gap-1 text-xs" style={{ color: s.current > 0 ? WIN : LOSS }}>
+                  {s.current > 0 && <Flame size={12} aria-hidden="true" />}
+                  {tx.streak}: {Math.abs(s.current)}
+                  {s.current > 0 ? tx.W : tx.L}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {loading && (
+          <p className="mt-6 text-sm" style={{ color: C.muted }} aria-live="polite">
+            {tx.loading}
+          </p>
+        )}
+
+        {!loading && (
+          <>
+            {/* ================= CHART + RANK/FORM ================= */}
+            <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px]">
+              <Reveal>
+                <div className={PANEL} style={{ background: C.panel, borderColor: C.line }}>
+                  <SectionTitle
+                    icon={TrendingUp}
+                    right={
+                      <div className="flex gap-1" role="tablist" aria-label={tx.ratingHistory}>
+                        {(["team", "ffa"] as const).map((v) => (
+                          <button
+                            key={v}
+                            role="tab"
+                            aria-selected={chartView === v}
+                            onClick={() => setChartView(v)}
+                            className="min-h-[36px] border px-3 text-xs uppercase tracking-widest transition-colors"
+                            style={{
+                              background: chartView === v ? C.amber : "transparent",
+                              color: chartView === v ? C.void : C.paper,
+                              borderColor: chartView === v ? C.amber : C.amberDim,
+                              fontWeight: chartView === v ? 700 : 500,
+                            }}
+                          >
+                            {v === "team" ? tx.teamTab : tx.ffaTab}
+                          </button>
+                        ))}
+                      </div>
+                    }
+                  >
+                    {tx.ratingHistory}
+                  </SectionTitle>
+                  <RatingChart key={chartView} points={chartView === "team" ? s.histTeam : s.histFfa} emptyText={tx.chartEmpty} lang={lang} startLabel={tx.start} />
+                </div>
+              </Reveal>
+
+              <div className="flex flex-col gap-6">
+                <Reveal delay={0.1}>
+                  <div className={PANEL} style={{ background: C.panel, borderColor: C.line }}>
+                    <div className="text-[11px] uppercase tracking-[0.18em]" style={{ color: C.muted }}>
+                      {tx.tier}
+                    </div>
+                    <div className="mt-3 flex items-center gap-4">
+                      <Insignia tier={tier} size={34} />
+                      <div className="cz-display text-3xl uppercase leading-none" style={{ color: C.amber, fontWeight: 700 }}>
+                        {TIERS[tier][lang]}
+                      </div>
+                    </div>
+                    <div className="mt-5 h-2 w-full overflow-hidden" style={{ background: C.line }}>
+                      <div className="czp-bar h-full" style={{ width: `${tierProgress * 100}%`, background: `linear-gradient(90deg, ${C.amberDim}, ${C.amber})` }} />
+                    </div>
+                    <div className="mt-2 text-xs" style={{ color: C.muted }}>
+                      {next ? tx.nextTier(next.min - teamRating, next[lang]) : tx.maxTier}
+                    </div>
+                  </div>
+                </Reveal>
+
+                <Reveal delay={0.2}>
+                  <div ref={formRef} className={`${PANEL} ${formIn ? "is-in" : ""}`} style={{ background: C.panel, borderColor: C.line }}>
+                    <div className="mb-3 text-[11px] uppercase tracking-[0.18em]" style={{ color: C.muted }}>
+                      {tx.form}
+                    </div>
+                    {form.length === 0 ? (
+                      <p className="text-sm" style={{ color: C.muted }}>
+                        {tx.formEmpty}
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5" dir="ltr">
+                        {form.map((m, i) => {
+                          const w = (m.winners ?? []).includes(me);
+                          return (
+                            <span
+                              key={m.id}
+                              title={`${w ? tx.victory : tx.defeat} · ${m.map ?? tx.unknownMap}`}
+                              className="czp-pill inline-flex h-9 w-9 items-center justify-center text-sm"
+                              style={{
+                                animationDelay: `${i * 0.07}s`,
+                                background: w ? "rgba(143,191,79,0.16)" : "rgba(248,113,113,0.14)",
+                                color: w ? WIN : LOSS,
+                                border: `1px solid ${w ? "rgba(143,191,79,0.5)" : "rgba(248,113,113,0.45)"}`,
+                                fontWeight: 700,
+                              }}
+                            >
+                              {w ? tx.W : tx.L}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </Reveal>
+              </div>
+            </div>
+
+            {/* ================= MAPS / MODES / RIVALRY ================= */}
+            <div ref={mapsRef} className={`mt-6 grid gap-6 lg:grid-cols-3 ${mapsIn ? "is-in" : ""}`}>
+              <Reveal>
+                <div className={`${PANEL} h-full`} style={{ background: C.panel, borderColor: C.line }}>
+                  <SectionTitle icon={MapIcon}>{tx.maps}</SectionTitle>
+                  {s.topMaps.length === 0 ? (
+                    <p className="text-sm" style={{ color: C.muted }}>{tx.none}</p>
+                  ) : (
+                    <ul className="flex flex-col gap-4">
+                      {s.topMaps.map(([name, v], i) => {
+                        const max = s.topMaps[0][1].g;
+                        const wr = Math.round((v.w / v.g) * 100);
+                        return (
+                          <li key={name}>
+                            <div className="flex items-baseline justify-between gap-3 text-sm">
+                              <span className="truncate" style={{ color: C.paper }}>{name}</span>
+                              <span className="shrink-0 text-xs tabular-nums" style={{ color: C.muted }}>
+                                {tx.games(v.g)} · <span style={{ color: wr >= 50 ? WIN : LOSS }}>{wr}%</span>
+                              </span>
+                            </div>
+                            <div className="mt-1.5 h-1.5 w-full" style={{ background: C.line }}>
+                              <div
+                                className={`czp-bar h-full ${mapsIn ? "is-in" : ""}`}
+                                style={{ width: `${(v.g / max) * 100}%`, background: C.amber, transitionDelay: `${i * 0.1}s` }}
+                              />
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </Reveal>
+
+              <Reveal delay={0.1}>
+                <div className={`${PANEL} h-full`} style={{ background: C.panel, borderColor: C.line }}>
+                  <SectionTitle icon={Gamepad2}>{tx.modes}</SectionTitle>
+                  {s.modes.length === 0 ? (
+                    <p className="text-sm" style={{ color: C.muted }}>{tx.none}</p>
+                  ) : (
+                    <ul className="flex flex-col gap-4">
+                      {s.modes.map(([mode, v], i) => {
+                        const wr = Math.round((v.w / v.g) * 100);
+                        return (
+                          <li key={mode}>
+                            <div className="flex items-baseline justify-between gap-3 text-sm">
+                              <span className="uppercase tracking-widest" style={{ color: C.paper }}>{mode}</span>
+                              <span className="text-xs tabular-nums" style={{ color: C.muted }}>
+                                {v.w}{tx.W} · {v.g - v.w}{tx.L} · <span style={{ color: wr >= 50 ? WIN : LOSS }}>{wr}%</span>
+                              </span>
+                            </div>
+                            <div className="mt-1.5 flex h-1.5 w-full overflow-hidden" style={{ background: "rgba(248,113,113,0.35)" }} dir="ltr">
+                              <div
+                                className={`czp-bar h-full ${mapsIn ? "is-in" : ""}`}
+                                style={{ width: `${wr}%`, background: WIN, transitionDelay: `${i * 0.1}s` }}
+                              />
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </Reveal>
+
+              <Reveal delay={0.2}>
+                <div className={`${PANEL} flex h-full flex-col gap-5`} style={{ background: C.panel, borderColor: C.line }}>
+                  {[
+                    { kind: "rival" as const, data: s.rival, icon: Skull, label: tx.rival, color: LOSS },
+                    { kind: "ally" as const, data: s.ally, icon: Handshake, label: tx.ally, color: WIN },
+                  ].map(({ kind, data, icon: Icon, label, color }) => (
+                    <div key={kind}>
+                      <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]" style={{ color }}>
+                        <Icon size={14} aria-hidden="true" />
+                        {label}
+                      </div>
+                      {data ? (
+                        <Link href={`/profile/${data[0]}`} className="czp-row flex items-center gap-3 border p-3" style={{ borderColor: C.line, background: "rgba(10,12,8,0.4)" }}>
+                          <Avatar src={avatars[data[0]]} size={44} />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate" style={{ color: C.paper, fontWeight: 600 }}>{data[0]}</div>
+                            <div className="mt-0.5 text-xs" style={{ color: C.muted }}>
+                              {kind === "rival" ? (
+                                <>
+                                  {tx.games(data[1].g)} ·{" "}
+                                  <span style={{ color: WIN }}>{data[1].w}{tx.W}</span>{" "}
+                                  <span style={{ color: LOSS }}>{data[1].g - data[1].w}{tx.L}</span>
+                                </>
+                              ) : (
+                                <>
+                                  {tx.games(data[1].g)} · {tx.together(data[1].w)}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </Link>
+                      ) : (
+                        <p className="text-sm" style={{ color: C.muted }}>{tx.none}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Reveal>
+            </div>
+
+            {/* ================= MEDALS ================= */}
+            <Reveal className="mt-12">
+              <SectionTitle
+                icon={Medal}
+                right={
+                  <span className="text-sm tabular-nums" style={{ color: C.muted }}>
+                    {tx.unlocked(medalCount, MEDALS.length)}
+                  </span>
+                }
+              >
+                {tx.medals}
+              </SectionTitle>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                {MEDALS.map((md) => {
+                  const st = s.medal[md.id];
+                  const Icon = md.icon;
+                  const [name, desc] = md[lang];
+                  return (
+                    <div
+                      key={md.id}
+                      className={`czp-medal border p-4 ${st.ok ? "unlocked" : ""}`}
+                      style={{ background: st.ok ? "linear-gradient(160deg, rgba(232,166,61,0.10), #12150E 60%)" : C.panel, borderColor: st.ok ? C.amberDim : C.line }}
+                      title={desc}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-full"
+                          style={{ background: st.ok ? "rgba(232,166,61,0.15)" : "rgba(58,64,41,0.4)", color: st.ok ? C.amber : C.muted, border: `1px solid ${st.ok ? C.amberDim : C.line}` }}
+                        >
+                          {st.ok ? <Icon size={19} aria-hidden="true" /> : <Lock size={16} aria-hidden="true" />}
+                        </span>
+                        {!st.ok && st.need > 1 && (
+                          <span className="text-[11px] tabular-nums" style={{ color: C.muted }}>
+                            {Math.min(st.have, st.need)}/{st.need}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-3 text-sm" style={{ color: st.ok ? C.paper : C.muted, fontWeight: 600 }}>
+                        {name}
+                      </div>
+                      <div className="mt-1 text-xs leading-snug" style={{ color: C.muted }}>
+                        {desc}
+                      </div>
+                      {!st.ok && st.need > 1 && (
+                        <div className="mt-3 h-1 w-full" style={{ background: C.line }}>
+                          <div className="h-full" style={{ width: `${Math.min(1, st.have / st.need) * 100}%`, background: C.amberDim }} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Reveal>
+
+            {/* ================= MATCH HISTORY ================= */}
+            <Reveal className="mt-12">
+              <SectionTitle
+                icon={Swords}
+                right={
+                  <div className="flex gap-1">
+                    {(["all", "team", "ffa"] as const).map((f) => (
+                      <button
+                        key={f}
+                        aria-pressed={histFilter === f}
+                        onClick={() => {
+                          setHistFilter(f);
+                          setHistShown(HISTORY_STEP);
+                        }}
+                        className="min-h-[36px] border px-3 text-xs uppercase tracking-widest transition-colors"
+                        style={{
+                          background: histFilter === f ? C.amber : "transparent",
+                          color: histFilter === f ? C.void : C.paper,
+                          borderColor: histFilter === f ? C.amber : C.amberDim,
+                          fontWeight: histFilter === f ? 700 : 500,
+                        }}
+                      >
+                        {f === "all" ? tx.all : f === "team" ? tx.teamTab : tx.ffaTab}
+                      </button>
+                    ))}
+                  </div>
+                }
+              >
+                {tx.history}
+              </SectionTitle>
+
+              {histList.length === 0 ? (
+                <p className="border px-4 py-10 text-center text-sm" style={{ borderColor: C.line, background: C.panel, color: C.muted }}>
+                  {tx.noMatches}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-px border" style={{ background: C.line, borderColor: C.line }}>
+                  {histList.slice(0, histShown).map((m) => {
+                    const w = (m.winners ?? []).includes(me);
+                    const d = m.rating_changes?.[me];
+                    const mySide = (m.participants ?? []).filter((p) => p !== me && m.mode !== "ffa" && (m.winners ?? []).includes(p) === w);
+                    const other = (m.participants ?? []).filter((p) => p !== me && !mySide.includes(p));
+                    return (
+                      <div
+                        key={m.id}
+                        className="czp-row grid grid-cols-[6px_1fr] items-stretch"
+                        style={{ background: C.panel }}
+                      >
+                        <span style={{ background: w ? WIN : LOSS }} aria-hidden="true" />
+                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3">
+                          <div className="w-24 shrink-0">
+                            <div className="cz-display text-lg uppercase leading-none" style={{ color: w ? WIN : LOSS, fontWeight: 700 }}>
+                              {w ? tx.victory : tx.defeat}
+                            </div>
+                            <div className="mt-1 text-[11px] uppercase tracking-widest" style={{ color: C.muted }}>
+                              {m.mode}
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm" style={{ color: C.paper, fontWeight: 500 }}>
+                              {m.map || tx.unknownMap}
+                              {m.tournament_name && (
+                                <span className="ms-2 text-xs" style={{ color: C.muted }}>
+                                  <Trophy size={11} className="me-1 inline" aria-hidden="true" />
+                                  {m.tournament_name}
+                                  {m.round ? ` · ${m.round}` : ""}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 flex flex-wrap gap-x-3 text-xs" style={{ color: C.muted }}>
+                              {mySide.length > 0 && (
+                                <span>
+                                  {tx.with}:{" "}
+                                  {mySide.map((p, i) => (
+                                    <span key={p}>
+                                      {i > 0 && ", "}
+                                      <Link href={`/profile/${p}`} className="hover:underline" style={{ color: C.paper }}>{p}</Link>
+                                    </span>
+                                  ))}
+                                </span>
+                              )}
+                              {other.length > 0 && (
+                                <span className="min-w-0 truncate">
+                                  {tx.against}:{" "}
+                                  {other.slice(0, 6).map((p, i) => (
+                                    <span key={p}>
+                                      {i > 0 && ", "}
+                                      <Link href={`/profile/${p}`} className="hover:underline" style={{ color: C.paper }}>{p}</Link>
+                                    </span>
+                                  ))}
+                                  {other.length > 6 ? ` +${other.length - 6}` : ""}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {typeof d === "number" && (
+                            <span
+                              className="shrink-0 px-2 py-1 text-sm tabular-nums"
+                              style={{ color: d >= 0 ? WIN : LOSS, background: d >= 0 ? "rgba(143,191,79,0.12)" : "rgba(248,113,113,0.12)", fontWeight: 700 }}
+                            >
+                              {d >= 0 ? "+" : ""}
+                              {Math.round(d)}
+                            </span>
+                          )}
+                          <span className="w-28 shrink-0 text-end text-xs" style={{ color: C.muted }}>
+                            {timeAgo(m.created_at)}
+                          </span>
+                          {m.replay_url ? (
+                            <a
+                              href={m.replay_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={tx.replay}
+                              title={tx.replay}
+                              className="inline-flex h-9 w-9 shrink-0 items-center justify-center transition-colors hover:bg-[#232818]"
+                              style={{ color: C.amber }}
+                            >
+                              <Download size={16} aria-hidden="true" />
+                            </a>
+                          ) : (
+                            <span className="h-9 w-9 shrink-0" aria-hidden="true" />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {histList.length > histShown && (
+                <div className="mt-6 flex justify-center">
+                  <button
+                    onClick={() => setHistShown((n) => n + HISTORY_STEP)}
+                    className="inline-flex min-h-[48px] items-center gap-2 border px-8 text-xs uppercase tracking-widest transition-colors hover:bg-[#E8A63D] hover:text-[#0A0C08]"
+                    style={{ borderColor: C.amber, color: C.amber, fontWeight: 700 }}
+                  >
+                    {tx.loadMore}
+                    <span className="tabular-nums" style={{ opacity: 0.7 }}>{histList.length - histShown}</span>
+                  </button>
+                </div>
+              )}
+            </Reveal>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}

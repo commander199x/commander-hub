@@ -55,17 +55,39 @@ const TOOLS: Tool[] = [
   },
 ];
 
-// Search and paging now happen instantly in the browser; the URL (?q=…&page=…&tab=…)
-// still works, so shared links open on the same view.
+const PAGE_SIZE = 12;
+
 export default async function Downloads({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; tab?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const query = (params.q ?? "").trim();
-  const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
-  const tab = params.tab === "mods" || params.tab === "tools" ? params.tab : "maps";
+  const filtered = query
+    ? maps.filter(
+        (m) =>
+          m.name.toLowerCase().includes(query.toLowerCase()) ||
+          m.description.toLowerCase().includes(query.toLowerCase())
+      )
+    : maps;
 
-  return <DownloadsView maps={maps} initialQuery={query} initialPage={page} initialTab={tab} mods={MODS} tools={TOOLS} />;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(Math.max(1, parseInt(params.page ?? "1", 10) || 1), totalPages);
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageMaps = filtered.slice(start, start + PAGE_SIZE);
+
+  return (
+    <DownloadsView
+      query={query}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      start={start}
+      pageMaps={pageMaps}
+      totalMapsCount={maps.length}
+      filteredCount={filtered.length}
+      mods={MODS}
+      tools={TOOLS}
+    />
+  );
 }
