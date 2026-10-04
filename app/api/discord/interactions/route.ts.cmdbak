@@ -3,25 +3,16 @@
 import { NextResponse, after } from "next/server";
 import { createPublicKey, verify } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import { SOCIALS } from "@/lib/discord-socials";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SITE = "https://www.commander.host";
+const SITE = "https://commander.host";
 const API = "https://discord.com/api/v10";
 const AMBER = 0xe8a63d;
 const MUTED = 0x83866f;
 const MIN_MATCHES_FOR_RANK = 3; // same rule as the leaderboard
 const PAGE = 1000;
-
-// The ladder command's name (change only if you registered it under another name).
-const LADDER = "ladder";
-
-type SocialKey = keyof typeof SOCIALS;
-const SOCIAL_LABEL: Record<SocialKey, string> = { youtube: "YouTube", tiktok: "TikTok", kick: "Kick", twitch: "Twitch" };
-const isSocial = (name: string): name is SocialKey => Object.prototype.hasOwnProperty.call(SOCIAL_LABEL, name);
-const activeSocials = () => (Object.keys(SOCIAL_LABEL) as SocialKey[]).filter((k) => !!SOCIALS[k]);
 
 type Option = { name: string; value?: string | number | boolean };
 type Interaction = {
@@ -38,8 +29,7 @@ type Embed = {
   fields?: { name: string; value: string; inline?: boolean }[];
   footer?: { text: string };
 };
-type Button = { type: 2; style: 5; label: string; url: string };
-type Reply = { content?: string; embeds?: Embed[]; components?: { type: 1; components: Button[] }[]; flags?: number };
+type Reply = { content?: string; embeds?: Embed[] };
 type Entry = { name: string; rating: number; wins: number; losses: number };
 
 // ---------- request signature check (required by Discord) ----------
@@ -176,46 +166,6 @@ async function buildReply(player: string, mode: "team" | "ffa"): Promise<Reply> 
   };
 }
 
-function helpReply(): Reply {
-  const socials = activeSocials().map((k) => `\`/${k}\``).join(" ");
-  const en = [
-    `\`/${LADDER}\` — top 5 on the Team ladder`,
-    `\`/${LADDER} player:<name>\` — a player's rank, rating and win rate`,
-    `\`/${LADDER} mode:FFA\` — use the FFA ladder instead`,
-    ...(socials ? [`${socials} — our channels`] : []),
-    "`/help` — this list",
-  ];
-  const ar = [
-    `\`/${LADDER}\` — أفضل 5 لاعبين في تصنيف الفرق`,
-    `\`/${LADDER} player:<الاسم>\` — ترتيب اللاعب وتقييمه ونسبة فوزه`,
-    `\`/${LADDER} mode:FFA\` — تصنيف FFA بدلاً من الفرق`,
-    ...(socials ? [`${socials} — قنواتنا`] : []),
-    "`/help` — هذه القائمة",
-  ];
-  return {
-    flags: 64, // only the person who asked sees it
-    embeds: [
-      {
-        title: "Commander bot",
-        url: SITE,
-        color: AMBER,
-        description: `${en.join("\n")}\n\n**بالعربية**\n${ar.join("\n")}`,
-        footer: { text: "commander.host" },
-      },
-    ],
-  };
-}
-
-function socialReply(key: SocialKey): Reply {
-  const url = SOCIALS[key];
-  const label = SOCIAL_LABEL[key];
-  if (!url) return { flags: 64, content: `The ${label} link isn't set up yet.` };
-  return {
-    content: `**Commander on ${label}**\n${url}`,
-    components: [{ type: 1, components: [{ type: 2, style: 5, label: `Open ${label}`, url }] }],
-  };
-}
-
 // ---------- handlers ----------
 export async function POST(req: Request) {
   const publicKey = process.env.DISCORD_PUBLIC_KEY;
@@ -237,13 +187,6 @@ export async function POST(req: Request) {
   if (interaction.type === 1) return NextResponse.json({ type: 1 });
 
   if (interaction.type === 2) {
-    const command = interaction.data?.name ?? "";
-
-    // Instant answers (no database needed)
-    if (command === "help") return NextResponse.json({ type: 4, data: { ...helpReply(), allowed_mentions: { parse: [] } } });
-    if (isSocial(command)) return NextResponse.json({ type: 4, data: { ...socialReply(command), allowed_mentions: { parse: [] } } });
-
-    // Everything else is the ladder command
     const opts = new Map((interaction.data?.options ?? []).map((o) => [o.name, o.value]));
     const playerOpt = opts.get("player");
     const player = typeof playerOpt === "string" ? playerOpt.trim() : "";
