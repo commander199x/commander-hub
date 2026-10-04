@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { logAdminAction } from "@/lib/auditLog";
 import TankSpinner from "@/components/TankSpinner";
+import { useFeedback } from "@/components/FeedbackProvider";
+import { restoreMatchFromTrash } from "@/lib/matchTrash";
 
 type Match = {
   id: string;
@@ -24,6 +26,7 @@ type Match = {
  */
 export default function RecentMatchesAdmin({ adminUsername = "unknown" }: { adminUsername?: string }) {
   const supabase = createClient();
+  const fb = useFeedback();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,10 +52,25 @@ export default function RecentMatchesAdmin({ adminUsername = "unknown" }: { admi
   }, []);
 
   async function handleDelete(id: string) {
-    const confirmed = window.confirm("Delete this match? This cannot be undone.");
+    const confirmed = await fb.confirm({
+      title: "Delete this match?",
+      message:
+        "Its rating changes will be reversed. You'll get an Undo button right after, and it stays recoverable from Admin → Deleted matches.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
     if (!confirmed) return;
 
     const matchToDelete = matches.find((m) => m.id === id);
+
+    // Delete first, so a failure here can't leave ratings reversed for a
+    // match that still exists.
+    const { error: deleteError } = await supabase.from("matches").delete().eq("id", id);
+    if (deleteError) {
+      fb.error(`Couldn't delete the match: ${deleteError.message}`);
+      return;
+    }
+
     if (matchToDelete?.rating_changes) {
       const column = matchToDelete.mode === "ffa" ? "rating_ffa" : "rating_team";
       const usernames = Object.keys(matchToDelete.rating_changes);
@@ -85,13 +103,32 @@ export default function RecentMatchesAdmin({ adminUsername = "unknown" }: { admi
       }
     }
 
-    await supabase.from("matches").delete().eq("id", id);
     await logAdminAction(supabase, adminUsername, "delete_match", {
       match_id: id,
       mode: matchToDelete?.mode,
       participants: matchToDelete?.participants,
       winners: matchToDelete?.winners,
     });
+    fb.toast("Match deleted.", {
+      kind: "info",
+      action: {
+        label: "Undo",
+        onClick: () => {
+          void undoDelete(id);
+        },
+      },
+    });
+    loadMatches();
+  }
+
+  async function undoDelete(id: string) {
+    const result = await restoreMatchFromTrash(supabase, { matchId: id });
+    if (!result.ok) {
+      fb.error(`Couldn't undo the delete: ${result.error}`);
+      return;
+    }
+    await logAdminAction(supabase, adminUsername, "restore_match", { match_id: id, via: "undo" });
+    fb.success("Match restored.");
     loadMatches();
   }
 
@@ -116,7 +153,7 @@ export default function RecentMatchesAdmin({ adminUsername = "unknown" }: { admi
       const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error: uploadError } = await supabase.storage.from("replays").upload(path, editFile);
       if (uploadError) {
-        alert(`Upload failed: ${uploadError.message}`);
+        fb.error(`Upload failed: ${uploadError.message}`);
         setSaving(false);
         return;
       }
@@ -127,13 +164,18 @@ export default function RecentMatchesAdmin({ adminUsername = "unknown" }: { admi
     }
 
     if (!replayUrl) {
-      alert("Paste a link or choose a file first.");
+      fb.info("Paste a link or choose a file first.");
       setSaving(false);
       return;
     }
 
-    await supabase.from("matches").update({ replay_url: replayUrl }).eq("id", id);
+    const { error: saveError } = await supabase.from("matches").update({ replay_url: replayUrl }).eq("id", id);
     setSaving(false);
+    if (saveError) {
+      fb.error(`Couldn't save the replay: ${saveError.message}`);
+      return;
+    }
+    fb.success("Replay added.");
     cancelEditing();
     loadMatches();
   }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { computeTeamMatchDeltas, computeFfaMatchDeltas, DEFAULT_RATING } from "@/lib/elo";
 import { logAdminAction } from "@/lib/auditLog";
+import { useFeedback } from "@/components/FeedbackProvider";
 
 type Match = {
   id: string;
@@ -25,13 +26,18 @@ type Match = {
  */
 export default function RecalculateRatings({ adminUsername = "unknown" }: { adminUsername?: string }) {
   const supabase = createClient();
+  const fb = useFeedback();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
   async function handleRecalculate() {
-    const confirmed = window.confirm(
-      "This will reset EVERY player's rating and recompute it from your full match history, in order. Continue?"
-    );
+    const confirmed = await fb.confirm({
+      title: "Recalculate all ratings?",
+      message:
+        "This resets EVERY player's rating and recomputes it from your full match history, in order. Match records themselves aren't touched.",
+      confirmLabel: "Recalculate",
+      danger: true,
+    });
     if (!confirmed) return;
 
     setRunning(true);
@@ -43,7 +49,7 @@ export default function RecalculateRatings({ adminUsername = "unknown" }: { admi
       .order("created_at", { ascending: true });
 
     if (matchError || !matchData) {
-      setResult(`Error loading matches: ${matchError?.message}`);
+      fb.error(`Couldn't load matches: ${matchError?.message}`);
       setRunning(false);
       return;
     }
@@ -91,6 +97,7 @@ export default function RecalculateRatings({ adminUsername = "unknown" }: { admi
 
     setRunning(false);
     setResult(`Done. Recalculated ratings for ${updated} player(s) based on ${matchData.length} match(es).`);
+    fb.success(`Recalculated ratings for ${updated} player(s) from ${matchData.length} match(es).`);
     await logAdminAction(supabase, adminUsername, "recalculate_all_ratings", {
       players_updated: updated,
       matches_processed: matchData.length,

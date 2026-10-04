@@ -4,12 +4,14 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { computeTeamMatchDeltas, computeFfaMatchDeltas, DEFAULT_RATING } from "@/lib/elo";
 import { notifyMatchResult, getTopThreeUsernames, notifyTopThreeChanges, checkAndNotifyNewTournament } from "@/lib/notifications";
+import { useFeedback } from "@/components/FeedbackProvider";
 
 type Profile = { username: string };
 type Mode = "2v2" | "3v3" | "4v4" | "ffa";
 
 export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
   const supabase = createClient();
+  const fb = useFeedback();
   const [mode, setMode] = useState<Mode>("4v4");
 
   const [team1, setTeam1] = useState<string[]>([]);
@@ -57,7 +59,7 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
     return name.trim().toLowerCase().replace(/\s+/g, " ");
   }
 
-  function addGuestPlayer() {
+  async function addGuestPlayer() {
     const name = guestNameInput.trim();
     if (!name) return;
 
@@ -85,9 +87,12 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
         (n) => normalize(n).includes(normalize(name)) || normalize(name).includes(normalize(n))
       );
       if (similar) {
-        const confirmUse = window.confirm(
-          `A player named "${similar}" already exists. Did you mean them, instead of creating "${name}" as a new guest?\n\nOK = use "${similar}"\nCancel = add "${name}" as a brand new guest`
-        );
+        const confirmUse = await fb.confirm({
+          title: "Did you mean an existing player?",
+          message: `A player named "${similar}" already exists. Did you mean them, instead of creating "${name}" as a new guest?`,
+          confirmLabel: `Use "${similar}"`,
+          cancelLabel: `Add "${name}" as new`,
+        });
         if (confirmUse) {
           setGuestPlayers((prev) => [...prev, similar]);
           setGuestNameInput("");
@@ -358,9 +363,10 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
       }
       setSubmitting(false);
 
-      if (error) setMessage(`Error: ${error.message}`);
+      if (error) fb.error(`Couldn't log the match: ${error.message}`);
       else {
-        setMessage("Match logged.");
+        fb.success("Match logged.");
+        setMessage(null);
         resetAll();
       }
       return;
@@ -416,9 +422,10 @@ export default function MatchForm({ allUsers }: { allUsers: Profile[] }) {
     }
     setSubmitting(false);
 
-    if (error) setMessage(`Error: ${error.message}`);
+    if (error) fb.error(`Couldn't log the match: ${error.message}`);
     else {
-      setMessage("Match logged.");
+      fb.success("Match logged.");
+      setMessage(null);
       resetAll();
     }
   }

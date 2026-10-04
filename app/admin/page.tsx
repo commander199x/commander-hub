@@ -12,6 +12,7 @@ import MergeGuestIntoAccount from "@/components/MergeGuestIntoAccount";
 import MergeDuplicateAccounts from "@/components/MergeDuplicateAccounts";
 import TankSpinner from "@/components/TankSpinner";
 import { logAdminAction } from "@/lib/auditLog";
+import { useFeedback } from "@/components/FeedbackProvider";
 import "@/app/admin.css";
 
 interface Profile {
@@ -28,6 +29,7 @@ interface Profile {
 export default function AdminPage() {
   const router = useRouter();
   const supabase = createClient();
+  const fb = useFeedback();
 
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
@@ -74,29 +76,54 @@ export default function AdminPage() {
 
   async function toggleBan(id: string, current: boolean) {
     const target = users.find((u) => u.id === id);
+
+    // Banning is a big action, so ask first. (Unbanning doesn't need a prompt.)
+    if (!current) {
+      const ok = await fb.confirm({
+        title: `Ban ${target?.username ?? "this user"}?`,
+        message: "Their account will be marked as banned until you unban them.",
+        confirmLabel: "Ban",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({ banned: !current })
       .eq("id", id);
 
-    if (!error) {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === id ? { ...u, banned: !current } : u))
-      );
-      await logAdminAction(supabase, adminUsername, !current ? "ban_user" : "unban_user", {
-        target_username: target?.username,
-      });
+    if (error) {
+      fb.error(`Couldn't update the ban: ${error.message}`);
+      return;
     }
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, banned: !current } : u))
+    );
+    await logAdminAction(supabase, adminUsername, !current ? "ban_user" : "unban_user", {
+      target_username: target?.username,
+    });
+    fb.success(`${target?.username ?? "User"} ${!current ? "banned" : "unbanned"}.`);
   }
 
   async function deleteAllMessages(id: string, username: string) {
-    const confirmed = window.confirm(
-      `Delete ALL messages from "${username}"? This cannot be undone.`
-    );
+    const confirmed = await fb.confirm({
+      title: `Delete all messages from ${username}?`,
+      message: "Every chat message they've posted will be permanently removed. This cannot be undone.",
+      confirmLabel: "Delete messages",
+      danger: true,
+    });
     if (!confirmed) return;
 
-    await supabase.from("messages").delete().eq("user_id", id);
+    const { error } = await supabase.from("messages").delete().eq("user_id", id);
+    if (error) {
+      fb.error(`Couldn't delete the messages: ${error.message}`);
+      return;
+    }
+
     await logAdminAction(supabase, adminUsername, "delete_all_messages", { target_username: username });
+    fb.success(`Deleted all messages from ${username}.`);
   }
 
   async function toggleTeam(id: string, current: boolean) {
@@ -105,11 +132,14 @@ export default function AdminPage() {
       .update({ is_team: !current })
       .eq("id", id);
 
-    if (!error) {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === id ? { ...u, is_team: !current } : u))
-      );
+    if (error) {
+      fb.error(`Couldn't update the team status: ${error.message}`);
+      return;
     }
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, is_team: !current } : u))
+    );
   }
 
   async function adjustWins(id: string, delta: number) {
@@ -122,11 +152,14 @@ export default function AdminPage() {
       .update({ wins: newWins })
       .eq("id", id);
 
-    if (!error) {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === id ? { ...u, wins: newWins } : u))
-      );
+    if (error) {
+      fb.error(`Couldn't update wins: ${error.message}`);
+      return;
     }
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, wins: newWins } : u))
+    );
   }
 
   async function adjustLosses(id: string, delta: number) {
@@ -139,11 +172,14 @@ export default function AdminPage() {
       .update({ losses: newLosses })
       .eq("id", id);
 
-    if (!error) {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === id ? { ...u, losses: newLosses } : u))
-      );
+    if (error) {
+      fb.error(`Couldn't update losses: ${error.message}`);
+      return;
     }
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, losses: newLosses } : u))
+    );
   }
 
   if (loading) {
@@ -177,9 +213,14 @@ export default function AdminPage() {
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <h1>User Moderation</h1>
-          <Link href="/admin/audit-log" style={{ fontSize: "0.8rem", color: "#f5a623" }}>
-            View Audit Log →
-          </Link>
+          <div style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
+            <Link href="/admin/deleted-matches" style={{ fontSize: "0.8rem", color: "#f5a623" }}>
+              Deleted matches →
+            </Link>
+            <Link href="/admin/audit-log" style={{ fontSize: "0.8rem", color: "#f5a623" }}>
+              View Audit Log →
+            </Link>
+          </div>
         </div>
 
         <input

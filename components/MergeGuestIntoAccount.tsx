@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { logAdminAction } from "@/lib/auditLog";
+import { useFeedback } from "@/components/FeedbackProvider";
 
 type Match = {
   id: string;
@@ -28,6 +29,7 @@ type Match = {
  */
 export default function MergeGuestIntoAccount({ adminUsername = "unknown" }: { adminUsername?: string }) {
   const supabase = createClient();
+  const fb = useFeedback();
   const [guestNames, setGuestNames] = useState<string[]>([]);
   const [memberNames, setMemberNames] = useState<string[]>([]);
   const [guestName, setGuestName] = useState("");
@@ -71,9 +73,12 @@ export default function MergeGuestIntoAccount({ adminUsername = "unknown" }: { a
       return;
     }
 
-    const confirmed = window.confirm(
-      `Merge all matches for "${guest}" into registered account "${target}"? This rewrites match history and cannot be easily undone.`
-    );
+    const confirmed = await fb.confirm({
+      title: "Merge into account?",
+      message: `Merge all matches for "${guest}" into registered account "${target}"? This rewrites match history and cannot be easily undone.`,
+      confirmLabel: "Merge",
+      danger: true,
+    });
     if (!confirmed) return;
 
     setRunning(true);

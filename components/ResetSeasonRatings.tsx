@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_RATING } from "@/lib/elo";
 import { logAdminAction } from "@/lib/auditLog";
+import { useFeedback } from "@/components/FeedbackProvider";
 
 /**
  * Fresh-season reset: sets EVERY player's rating_team and rating_ffa back
@@ -15,30 +16,60 @@ import { logAdminAction } from "@/lib/auditLog";
  */
 export default function ResetSeasonRatings({ adminUsername = "unknown" }: { adminUsername?: string }) {
   const supabase = createClient();
+  const fb = useFeedback();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
   async function handleReset() {
-    const firstConfirm = window.confirm(
-      "This will reset EVERY player's rating back to 1000, ignoring all match history. This is for starting a new season. Continue?"
-    );
+    const firstConfirm = await fb.confirm({
+      title: "Start a new season?",
+      message:
+        "This resets EVERY player's rating back to 1000, ignoring match history. Match records, W/L and replays stay intact, only ratings reset.\n\nA snapshot of the final standings is saved in the Audit Log first, so this season's results aren't lost.",
+      confirmLabel: "Continue",
+      danger: true,
+    });
     if (!firstConfirm) return;
 
-    const secondConfirm = window.confirm(
-      "Are you sure? This cannot be undone — everyone's rating progress will be wiped. Match history and W/L records stay intact, only ratings reset."
-    );
-    if (!secondConfirm) return;
+    const typed = await fb.prompt({
+      title: "Type RESET to confirm",
+      message: "Final step. Type RESET (in capitals) to wipe every rating. This cannot be undone.",
+      placeholder: "RESET",
+      confirmLabel: "Reset ratings",
+    });
+    if (typed === null) return;
+    if (typed.trim() !== "RESET") {
+      fb.info("Reset cancelled: you didn't type RESET exactly.");
+      return;
+    }
 
     setRunning(true);
     setResult(null);
 
-    const { data: allProfiles, error: fetchError } = await supabase.from("profiles").select("username");
+    const { data: allProfiles, error: fetchError } = await supabase
+      .from("profiles")
+      .select("username, rating_team, rating_ffa");
 
     if (fetchError || !allProfiles) {
-      setResult(`Error loading players: ${fetchError?.message}`);
+      fb.error(`Couldn't load players: ${fetchError?.message}`);
       setRunning(false);
       return;
     }
+
+    const { data: allGuests } = await supabase.from("guest_ratings").select("name, rating_team, rating_ffa");
+
+    // Save the final standings BEFORE wiping them, inside the audit-log
+    // entry, so this season's results can always be recovered later.
+    // Only players whose rating actually changed are stored, to keep it small.
+    const hasProgress = (r: any) =>
+      (r.rating_team ?? DEFAULT_RATING) !== DEFAULT_RATING || (r.rating_ffa ?? DEFAULT_RATING) !== DEFAULT_RATING;
+    const snapshot = {
+      profiles: (allProfiles as any[])
+        .filter(hasProgress)
+        .map((p) => ({ username: p.username, rating_team: p.rating_team, rating_ffa: p.rating_ffa })),
+      guests: ((allGuests ?? []) as any[])
+        .filter(hasProgress)
+        .map((g) => ({ name: g.name, rating_team: g.rating_team, rating_ffa: g.rating_ffa })),
+    };
 
     let updated = 0;
     for (const p of allProfiles) {
@@ -49,7 +80,6 @@ export default function ResetSeasonRatings({ adminUsername = "unknown" }: { admi
       if (!error) updated++;
     }
 
-    const { data: allGuests } = await supabase.from("guest_ratings").select("name");
     for (const g of allGuests ?? []) {
       await supabase
         .from("guest_ratings")
@@ -60,7 +90,11 @@ export default function ResetSeasonRatings({ adminUsername = "unknown" }: { admi
 
     setRunning(false);
     setResult(`Done. Reset ratings to 1000 for ${updated} player(s).`);
-    await logAdminAction(supabase, adminUsername, "reset_season_ratings", { players_reset: updated });
+    fb.success(`Season reset: ${updated} player(s) back to 1000. Final standings were saved to the Audit Log.`);
+    await logAdminAction(supabase, adminUsername, "reset_season_ratings", {
+      players_reset: updated,
+      final_ratings_snapshot: snapshot,
+    });
   }
 
   return (

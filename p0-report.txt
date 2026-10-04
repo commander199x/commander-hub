@@ -1,0 +1,407 @@
+COMMANDER HUB — P0 REPORT  (2026-10-04T05:47:27.355Z)
+Scanned 89 files in: app, components, lib
+lucide-react installed: yes
+
+APPLIED:
+  - app/globals.css: refreshed focus ring + reduced-motion block
+
+SUMMARY:
+     1  C.muted with opacity/alpha (P0: remove — use full-strength C.muted)
+    33  Off-palette reds (P0: use C.danger / C.dangerHover)
+     5  Icon-only buttons missing aria-label (P0)
+    20  Buttons that may lack readable text (check)
+     1  Focus outline removed (global ring now overrides, but clean these up)
+     1  Form controls not using C.amberDim borders (P0)
+    25  Emoji in UI (next: swap for Lucide icons)
+   266  Hardcoded hex colours outside lib/theme.ts (next: swap for tokens)
+
+
+=== C.muted with opacity/alpha (P0: remove — use full-strength C.muted) — 1 ===
+components/RatingHistoryChart.tsx:117  <div style={{ height: 160, opacity: 0.4, color: C.muted, fontSize: "0.8rem" }}>Loading…</div>
+
+=== Off-palette reds (P0: use C.danger / C.dangerHover) — 33 ===
+app/admin/deleted-matches/page.tsx:170  #EF4444 → C.danger
+app/error.tsx:28  #EF4444 → C.danger
+app/leaderboard/page.tsx:710  #EF4444 → C.danger
+app/leaderboard/page.tsx:721  #EF4444 → C.danger
+app/leaderboard/page.tsx:879  #EF4444 → C.danger
+app/leaderboard/page.tsx:880  #EF4444 → C.danger
+app/season-1/page.tsx:176  #EF4444 → C.danger
+app/tournaments/standings/page.tsx:134  #EF4444 → C.danger
+components/FeedbackProvider.tsx:73  #EF4444 → C.danger
+components/FeedbackProvider.tsx:343  #EF4444 → C.danger
+components/FeedbackProvider.tsx:352  #EF4444 → C.danger
+components/FeedbackProvider.tsx:420  #EF4444 → C.danger
+components/FeedbackProvider.tsx:421  #EF4444 → C.danger
+components/home/CinematicHero.tsx:153  #CC0000 → C.danger
+components/MatchForm.tsx:544  #EF4444 → C.danger
+components/MatchForm.tsx:594  #EF4444 → C.danger
+components/MatchForm.tsx:596  #EF4444 → C.danger
+components/MatchForm.tsx:627  #EF4444 → C.danger
+components/MergeDuplicateAccounts.tsx:138  #EF4444 → C.danger
+components/MergeDuplicateAccounts.tsx:139  #EF4444 → C.danger
+components/MergeDuplicateAccounts.tsx:169  #EF4444 → C.danger
+components/PlayerMatchHistory.tsx:87  #EF4444 → C.danger
+components/PlayerMatchHistory.tsx:131  #EF4444 → C.danger
+components/PlayerMatchHistory.tsx:170  #EF4444 → C.danger
+components/RatingHistoryChart.tsx:179  #EF4444 → C.danger
+components/RecentMatchesAdmin.tsx:214  #EF4444 → C.danger
+components/RecentMatchesAdmin.tsx:259  #EF4444 → C.danger
+components/RecentMatchesAdmin.tsx:260  #EF4444 → C.danger
+components/ResetSeasonRatings.tsx:101  #EF4444 → C.danger
+components/ResetSeasonRatings.tsx:102  #EF4444 → C.danger
+components/ResetSeasonRatings.tsx:112  #EF4444 → C.danger
+components/TopBanner.tsx:87  #FF0000 → C.danger
+components/YouTubeSection.tsx:100  #FF0000 → C.danger
+
+=== Icon-only buttons missing aria-label (P0) — 5 ===
+app/admin/page.tsx:245  icon-only <button> without aria-label
+app/admin/page.tsx:247  icon-only <button> without aria-label
+app/admin/page.tsx:250  icon-only <button> without aria-label
+app/admin/page.tsx:252  icon-only <button> without aria-label
+components/MatchForm.tsx:541  icon-only <button> without aria-label
+
+=== Buttons that may lack readable text (check) — 20 ===
+app/admin/deleted-matches/page.tsx:182  <button> shows only {busyId===row.id?"Restoring...":"↺Restore"} — check it has readable text
+app/admin/page.tsx:255  <button> shows only {u.is_team?"RemoveTeam":"MakeTeam"} — check it has readable text
+app/forgot-password/page.tsx:113  <button> shows only {loading?"Sending...":"Sendresetlink"} — check it has readable text
+app/leaderboard/page.tsx:378  <button> shows only {v==="team"?"Team(2v23v34v4)":"FFA"} — check it has readable text
+app/leaderboard/page.tsx:404  <button> shows only {size==="all"?"Allsizes":size} — check it has readable text
+app/leaderboard/page.tsx:959  <button> shows only {savingReplay?"Saving...":"Save"} — check it has readable text
+app/leaderboard/page.tsx:1038  <button> shows only {p} — check it has readable text
+app/login/page.tsx:108  <button> shows only {discordLoading?"Redirecting...":"ContinuewithDisc — check it has readable text
+app/login/page.tsx:160  <button> shows only {loading?"Loggingin...":"Login"} — check it has readable text
+app/profile/edit/page.tsx:169  <button> shows only {saving?"Saving...":"Savechanges"} — check it has readable text
+app/reset-password/page.tsx:82  <button> shows only {loading?"Saving...":"Updatepassword"} — check it has readable text
+app/signup/page.tsx:130  <button> shows only {discordLoading?"Redirecting...":"ContinuewithDisc — check it has readable text
+app/signup/page.tsx:199  <button> shows only {loading?"Creatingaccount...":"Signup"} — check it has readable text
+components/CopyButton.tsx:21  <button> shows only {copied?:}{copied?"Copied":"Copy"} — check it has readable text
+components/MatchForm.tsx:846  <button> shows only {submitting?"Saving...":"LogMatch"} — check it has readable text
+components/MergeDuplicateAccounts.tsx:165  <button> shows only {running?"Merging...":"MergeDuplicateAccounts"} — check it has readable text
+components/MergeGuestIntoAccount.tsx:178  <button> shows only {running?"Merging...":"MergeGuestIntoAccount"} — check it has readable text
+components/RecalculateRatings.tsx:116  <button> shows only {running?"Recalculating...":"RecalculateAllRatings — check it has readable text
+components/RecentMatchesAdmin.tsx:326  <button> shows only {saving?"Saving...":"Save"} — check it has readable text
+components/ResetSeasonRatings.tsx:108  <button> shows only {running?"Resetting...":"ResetSeason(WipeAllRating — check it has readable text
+
+=== Focus outline removed (global ring now overrides, but clean these up) — 1 ===
+components/MapSearch.tsx:42  className="w-full ps-9 pe-3 py-2.5 text-xs uppercase tracking-widest outline-none"
+
+=== Form controls not using C.amberDim borders (P0) — 1 ===
+components/MapSearch.tsx:37  border: `1px solid ${C.line → C.amberDim
+
+=== Emoji in UI (next: swap for Lucide icons) — 25 ===
+app/api/discord/route.ts:157  🛡️ ⚔️   content: `**${profile.username}**\n🛡️ Team (2v2/3v3/4v4): ${team}\n⚔️ FFA: ${ff
+app/DiscordCounter.tsx:19  🔥   {members === null ? "Loading Discord..." : `🔥 ${members} Members Online`}
+app/leaderboard/page.tsx:502  🥇 🥈 🥉   const medal = ["🥇", "🥈", "🥉"];
+app/leaderboard/page.tsx:552  🔥   <span style={{ fontSize: "0.75rem", color: "#f97316", flexShrink: 0 }}>🔥{p.stre
+app/leaderboard/page.tsx:567  🎖️   🎖️ Veteran
+app/leaderboard/page.tsx:582  ⚔️   ⚔️ Active
+app/leaderboard/page.tsx:833  ⬇   ⬇
+app/leaderboard/page.tsx:871  🚩   🚩
+app/season-1/page.tsx:135  🏆   lines.push("🏆 **SEASON 1 — FINAL RESULTS** 🏆");
+app/season-1/page.tsx:139  🥇 🥈 🥉   const medal = ["🥇", "🥈", "🥉"][i];
+app/season-1/page.tsx:145  🥇 🥈 🥉   const medal = ["🥇", "🥈", "🥉"][i];
+app/season-1/page.tsx:149  🎖️   if (mostActive) lines.push(`🎖️ Most Active: ${mostActive.username} (${mostActiv
+app/season-1/page.tsx:151  🔥   lines.push(`🔥 Longest Win Streak: ${longestStreak.username} — ${longestStreak.s
+app/season-1/page.tsx:156  🫡   lines.push("GG to everyone who competed — Season 2 is live now! 🫡");
+app/season-1/page.tsx:195  🛡️   <h2 style={{ fontSize: "1rem", color: "#f5a623", marginBottom: "0.75rem" }}>🛡️ 
+app/season-1/page.tsx:199  🥇 🥈 🥉   <span>{["🥇", "🥈", "🥉"][i]} {p.username}</span>
+app/season-1/page.tsx:205  ⚔️   <h2 style={{ fontSize: "1rem", color: "#f5a623", marginBottom: "0.75rem" }}>⚔️ F
+app/season-1/page.tsx:209  🥇 🥈 🥉   <span>{["🥇", "🥈", "🥉"][i]} {p.username}</span>
+app/season-1/page.tsx:251  📋   📋 Copy Discord Announcement
+components/HomeLeaderboardPreview.tsx:15  🥇 🥈 🥉   const MEDALS = ["🥇", "🥈", "🥉"];
+components/NotificationBell.tsx:89  🔔   🔔
+components/PlayerMatchHistory.tsx:194  ⬇   ⬇
+components/RecentMatchesAdmin.tsx:234  ⬇   ⬇ Replay
+lib/notifications.ts:84  🎉   message: `🎉 You entered the Top 3 ${modeLabel} leaderboard!`,
+lib/notifications.ts:121  📢   message: `📢 New tournament announced: ${tournamentName}!`,
+
+=== Hardcoded hex colours outside lib/theme.ts (next: swap for tokens) — 266 ===
+app/admin/audit-log/page.tsx:85  #F5A623  (no token)
+app/admin/audit-log/page.tsx:104  #0E0E0E  (no token)
+app/admin/audit-log/page.tsx:105  #222  (no token)
+app/admin/audit-log/page.tsx:112  #F5A623  (no token)
+app/admin/deleted-matches/page.tsx:125  #F5A623  (no token)
+app/admin/deleted-matches/page.tsx:149  #0E0E0E  (no token)
+app/admin/deleted-matches/page.tsx:150  #222  (no token)
+app/admin/deleted-matches/page.tsx:159  #F5A623  (no token)
+app/admin/deleted-matches/page.tsx:160  #F5A623  (no token)
+app/admin/deleted-matches/page.tsx:169  #22C55E  (no token)
+app/admin/deleted-matches/page.tsx:187  #22C55E  (no token)
+app/admin/deleted-matches/page.tsx:188  #22C55E  (no token)
+app/admin/page.tsx:217  #F5A623  (no token)
+app/admin/page.tsx:220  #F5A623  (no token)
+app/contact/page.tsx:24  #888  (no token)
+app/contact/page.tsx:68  #666  (no token)
+app/error.tsx:33  #EEE  (no token)
+app/error.tsx:36  #888  (no token)
+app/error.tsx:43  #F5A623  (no token)
+app/error.tsx:44  #0A0A0A  (no token)
+app/error.tsx:59  #F5A623  (no token)
+app/error.tsx:60  #F5A623  (no token)
+app/leaderboard/page.tsx:376  #222  (no token)
+app/leaderboard/page.tsx:390  #F5A623  (no token)
+app/leaderboard/page.tsx:390  #888  (no token)
+app/leaderboard/page.tsx:392  #F5A623  (no token)
+app/leaderboard/page.tsx:408  #F5A623  (no token)
+app/leaderboard/page.tsx:409  #000  (no token)
+app/leaderboard/page.tsx:409  #888  (no token)
+app/leaderboard/page.tsx:410  #F5A623  (no token)
+app/leaderboard/page.tsx:432  #131313  (no token)
+app/leaderboard/page.tsx:433  #333  (no token)
+app/leaderboard/page.tsx:434  #EEE  (no token)
+app/leaderboard/page.tsx:443  #131313  (no token)
+app/leaderboard/page.tsx:443  #333  (no token)
+app/leaderboard/page.tsx:443  #F5A623  (no token)
+app/leaderboard/page.tsx:452  #131313  (no token)
+app/leaderboard/page.tsx:452  #333  (no token)
+app/leaderboard/page.tsx:452  #F5A623  (no token)
+app/leaderboard/page.tsx:491  #F5A623  (no token)
+app/leaderboard/page.tsx:495  #C0C0C0  (no token)
+app/leaderboard/page.tsx:499  #CD7F32  (no token)
+app/leaderboard/page.tsx:538  #F5A623  (no token)
+app/leaderboard/page.tsx:538  #C0C0C0  (no token)
+app/leaderboard/page.tsx:538  #CD7F32  (no token)
+app/leaderboard/page.tsx:552  #F97316  (no token)
+app/leaderboard/page.tsx:559  #C084FC  (no token)
+app/leaderboard/page.tsx:560  #C084FC  (no token)
+app/leaderboard/page.tsx:574  #60A5FA  (no token)
+app/leaderboard/page.tsx:575  #60A5FA  (no token)
+app/leaderboard/page.tsx:592  #F5A623  (no token)
+app/leaderboard/page.tsx:673  #666  (no token)
+app/leaderboard/page.tsx:674  #222  (no token)
+app/leaderboard/page.tsx:702  #EEE  (no token)
+app/leaderboard/page.tsx:710  #22C55E  (no token)
+app/leaderboard/page.tsx:721  #22C55E  (no token)
+app/leaderboard/page.tsx:736  #12161C  (no token)
+app/leaderboard/page.tsx:736  #0D1015  (no token)
+app/leaderboard/page.tsx:737  #222  (no token)
+app/leaderboard/page.tsx:751  #1C222B  (no token)
+app/leaderboard/page.tsx:754  #888  (no token)
+app/leaderboard/page.tsx:796  #CCC  (no token)
+app/leaderboard/page.tsx:810  #F5A623  (no token)
+app/leaderboard/page.tsx:811  #F5A623  (no token)
+app/leaderboard/page.tsx:831  #F5A623  (no token)
+app/leaderboard/page.tsx:841  #444  (no token)
+app/leaderboard/page.tsx:842  #666  (no token)
+app/leaderboard/page.tsx:862  #666  (no token)
+app/leaderboard/page.tsx:863  #888  (no token)
+app/leaderboard/page.tsx:906  #F5A623  (no token)
+app/leaderboard/page.tsx:926  #131313  (no token)
+app/leaderboard/page.tsx:927  #333  (no token)
+app/leaderboard/page.tsx:928  #666  (no token)
+app/leaderboard/page.tsx:928  #EEE  (no token)
+app/leaderboard/page.tsx:949  #F5A623  (no token)
+app/leaderboard/page.tsx:950  #F5A623  (no token)
+app/leaderboard/page.tsx:964  #F5A623  (no token)
+app/leaderboard/page.tsx:965  #000  (no token)
+app/leaderboard/page.tsx:980  #888  (no token)
+app/leaderboard/page.tsx:981  #444  (no token)
+app/leaderboard/page.tsx:1023  #444  (no token)
+app/leaderboard/page.tsx:1024  #444  (no token)
+app/leaderboard/page.tsx:1024  #EEE  (no token)
+app/leaderboard/page.tsx:1044  #F5A623  (no token)
+app/leaderboard/page.tsx:1045  #000  (no token)
+app/leaderboard/page.tsx:1045  #EEE  (no token)
+app/leaderboard/page.tsx:1046  #444  (no token)
+app/leaderboard/page.tsx:1064  #444  (no token)
+app/leaderboard/page.tsx:1065  #444  (no token)
+app/leaderboard/page.tsx:1065  #EEE  (no token)
+app/loading.tsx:26  #333  (no token)
+app/loading.tsx:33  #555  (no token)
+app/loading.tsx:39  #F5A623  (no token)
+app/loading.tsx:42  #D4891A  (no token)
+app/loading.tsx:45  #D4891A  (no token)
+app/loading.tsx:48  #1A1A1A  (no token)
+app/loading.tsx:56  #888  (no token)
+app/login/page.tsx:118  #5865F2  (no token)
+app/login/page.tsx:119  #FFF  (no token)
+app/login/page.tsx:134  #666  (no token)
+app/not-found.tsx:22  #888  (no token)
+app/not-found.tsx:31  #F5A623  (no token)
+app/not-found.tsx:37  #888  (no token)
+app/not-found.tsx:47  #F5A623  (no token)
+app/not-found.tsx:48  #0A0A0A  (no token)
+app/privacy/page.tsx:12  #888  (no token)
+app/privacy/page.tsx:18  #666  (no token)
+app/privacy/page.tsx:86  #F5A623  (no token)
+app/season-1/page.tsx:183  #888  (no token)
+app/season-1/page.tsx:195  #F5A623  (no token)
+app/season-1/page.tsx:198  #222  (no token)
+app/season-1/page.tsx:200  #F5A623  (no token)
+app/season-1/page.tsx:205  #F5A623  (no token)
+app/season-1/page.tsx:208  #222  (no token)
+app/season-1/page.tsx:210  #F5A623  (no token)
+app/season-1/page.tsx:218  #60A5FA  (no token)
+app/season-1/page.tsx:219  #60A5FA  (no token)
+app/season-1/page.tsx:225  #F97316  (no token)
+app/season-1/page.tsx:226  #F97316  (no token)
+app/season-1/page.tsx:231  #444  (no token)
+app/season-1/page.tsx:232  #888  (no token)
+app/season-1/page.tsx:241  #F5A623  (no token)
+app/season-1/page.tsx:242  #000  (no token)
+app/signup/page.tsx:140  #5865F2  (no token)
+app/signup/page.tsx:141  #FFF  (no token)
+app/signup/page.tsx:156  #666  (no token)
+app/terms/page.tsx:12  #888  (no token)
+app/terms/page.tsx:18  #666  (no token)
+app/terms/page.tsx:104  #F5A623  (no token)
+app/tournaments/standings/page.tsx:86  #131313  (no token)
+app/tournaments/standings/page.tsx:86  #F5A623  (no token)
+app/tournaments/standings/page.tsx:86  #333  (no token)
+app/tournaments/standings/page.tsx:108  #222  (no token)
+app/tournaments/standings/page.tsx:126  #F5A623  (no token)
+app/tournaments/standings/page.tsx:133  #22C55E  (no token)
+components/FeedbackProvider.tsx:72  #22C55E  (no token)
+components/FeedbackProvider.tsx:74  #F5A623  (no token)
+components/FeedbackProvider.tsx:375  #131313  (no token)
+components/FeedbackProvider.tsx:377  #EEE  (no token)
+components/FeedbackProvider.tsx:394  #131313  (no token)
+components/FeedbackProvider.tsx:396  #EEE  (no token)
+components/FeedbackProvider.tsx:422  #FFF  (no token)
+components/Header.tsx:117  #FF4D6D  (no token)
+components/Header.tsx:117  #FF4D6D  (no token)
+components/Header.tsx:210  #FF4D6D  (no token)
+components/Header.tsx:210  #FF4D6D  (no token)
+components/home/CinematicHero.tsx:154  #FFF  (no token)
+components/home/CinematicHero.tsx:154  #FFF  (no token)
+components/home/FrontLine.tsx:12  #E8A63D → C.amber
+components/home/FrontLine.tsx:12  #C0C0C0  (no token)
+components/home/FrontLine.tsx:12  #CD7F32  (no token)
+components/home/PosterArt.tsx:32  #C0C0C0  (no token)
+components/home/PosterArt.tsx:34  #CD7F32  (no token)
+components/HomeLeaderboardPreview.tsx:33  #F5A623  (no token)
+components/HomeLeaderboardPreview.tsx:33  #C0C0C0  (no token)
+components/HomeLeaderboardPreview.tsx:33  #CD7F32  (no token)
+components/MatchForm.tsx:434  #333  (no token)
+components/MatchForm.tsx:443  #131313  (no token)
+components/MatchForm.tsx:444  #F5A623  (no token)
+components/MatchForm.tsx:445  #333  (no token)
+components/MatchForm.tsx:463  #60A5FA  (no token)
+components/MatchForm.tsx:464  #60A5FA  (no token)
+components/MatchForm.tsx:475  #444  (no token)
+components/MatchForm.tsx:497  #131313  (no token)
+components/MatchForm.tsx:498  #333  (no token)
+components/MatchForm.tsx:499  #EEE  (no token)
+components/MatchForm.tsx:514  #F5A623  (no token)
+components/MatchForm.tsx:515  #F5A623  (no token)
+components/MatchForm.tsx:531  #1A1A1A  (no token)
+components/MatchForm.tsx:532  #444  (no token)
+components/MatchForm.tsx:571  #F5A623  (no token)
+components/MatchForm.tsx:581  #3B82F6  (no token)
+components/MatchForm.tsx:582  #FFF  (no token)
+components/MatchForm.tsx:583  #3B82F6  (no token)
+components/MatchForm.tsx:595  #FFF  (no token)
+components/MatchForm.tsx:608  #3B82F6  (no token)
+components/MatchForm.tsx:660  #F5A623  (no token)
+components/MatchForm.tsx:698  #131313  (no token)
+components/MatchForm.tsx:699  #333  (no token)
+components/MatchForm.tsx:700  #EEE  (no token)
+components/MatchForm.tsx:716  #131313  (no token)
+components/MatchForm.tsx:717  #333  (no token)
+components/MatchForm.tsx:718  #EEE  (no token)
+components/MatchForm.tsx:733  #131313  (no token)
+components/MatchForm.tsx:734  #333  (no token)
+components/MatchForm.tsx:735  #EEE  (no token)
+components/MatchForm.tsx:747  #131313  (no token)
+components/MatchForm.tsx:748  #333  (no token)
+components/MatchForm.tsx:749  #EEE  (no token)
+components/MatchForm.tsx:756  #444  (no token)
+components/MatchForm.tsx:772  #131313  (no token)
+components/MatchForm.tsx:773  #333  (no token)
+components/MatchForm.tsx:774  #666  (no token)
+components/MatchForm.tsx:774  #EEE  (no token)
+components/MatchForm.tsx:797  #131313  (no token)
+components/MatchForm.tsx:798  #333  (no token)
+components/MatchForm.tsx:799  #EEE  (no token)
+components/MatchForm.tsx:809  #F5A623  (no token)
+components/MatchForm.tsx:810  #F5A623  (no token)
+components/MatchForm.tsx:833  #F5A623  (no token)
+components/MatchForm.tsx:850  #F5A623  (no token)
+components/MatchForm.tsx:851  #000  (no token)
+components/MergeDuplicateAccounts.tsx:130  #131313  (no token)
+components/MergeDuplicateAccounts.tsx:131  #333  (no token)
+components/MergeDuplicateAccounts.tsx:132  #EEE  (no token)
+components/MergeDuplicateAccounts.tsx:170  #FFF  (no token)
+components/MergeDuplicateAccounts.tsx:181  #22C55E  (no token)
+components/MergeGuestIntoAccount.tsx:142  #131313  (no token)
+components/MergeGuestIntoAccount.tsx:143  #333  (no token)
+components/MergeGuestIntoAccount.tsx:144  #EEE  (no token)
+components/MergeGuestIntoAccount.tsx:150  #F5A623  (no token)
+components/MergeGuestIntoAccount.tsx:182  #F5A623  (no token)
+components/MergeGuestIntoAccount.tsx:183  #000  (no token)
+components/MergeGuestIntoAccount.tsx:194  #22C55E  (no token)
+components/PlayerMatchHistory.tsx:77  #222  (no token)
+components/PlayerMatchHistory.tsx:84  #F5A623  (no token)
+components/PlayerMatchHistory.tsx:85  #F5A623  (no token)
+components/PlayerMatchHistory.tsx:86  #22C55E  (no token)
+components/PlayerMatchHistory.tsx:88  #EEE  (no token)
+components/PlayerMatchHistory.tsx:93  #0E0E0E  (no token)
+components/PlayerMatchHistory.tsx:125  #1C1C1C  (no token)
+components/PlayerMatchHistory.tsx:131  #22C55E  (no token)
+components/PlayerMatchHistory.tsx:142  #F5A623  (no token)
+components/PlayerMatchHistory.tsx:145  #F5A623  (no token)
+components/PlayerMatchHistory.tsx:170  #22C55E  (no token)
+components/PlayerMatchHistory.tsx:192  #F5A623  (no token)
+components/PlayerMatchHistory.tsx:211  #F5A623  (no token)
+components/PlayerMatchHistory.tsx:212  #F5A623  (no token)
+components/RatingHistoryChart.tsx:179  #22C55E  (no token)
+components/RecalculateRatings.tsx:108  #333  (no token)
+components/RecalculateRatings.tsx:120  #F5A623  (no token)
+components/RecalculateRatings.tsx:121  #000  (no token)
+components/RecalculateRatings.tsx:132  #22C55E  (no token)
+components/RecentMatchesAdmin.tsx:186  #333  (no token)
+components/RecentMatchesAdmin.tsx:203  #222  (no token)
+components/RecentMatchesAdmin.tsx:209  #F5A623  (no token)
+components/RecentMatchesAdmin.tsx:212  #22C55E  (no token)
+components/RecentMatchesAdmin.tsx:226  #F5A623  (no token)
+components/RecentMatchesAdmin.tsx:227  #F5A623  (no token)
+components/RecentMatchesAdmin.tsx:242  #888  (no token)
+components/RecentMatchesAdmin.tsx:243  #444  (no token)
+components/RecentMatchesAdmin.tsx:276  #F5A623  (no token)
+components/RecentMatchesAdmin.tsx:295  #131313  (no token)
+components/RecentMatchesAdmin.tsx:296  #333  (no token)
+components/RecentMatchesAdmin.tsx:297  #EEE  (no token)
+components/RecentMatchesAdmin.tsx:317  #F5A623  (no token)
+components/RecentMatchesAdmin.tsx:318  #F5A623  (no token)
+components/RecentMatchesAdmin.tsx:331  #F5A623  (no token)
+components/RecentMatchesAdmin.tsx:332  #000  (no token)
+components/RecentMatchesAdmin.tsx:347  #888  (no token)
+components/RecentMatchesAdmin.tsx:348  #444  (no token)
+components/ResetSeasonRatings.tsx:113  #FFF  (no token)
+components/ResetSeasonRatings.tsx:124  #22C55E  (no token)
+components/TankSpinner.tsx:27  #333  (no token)
+components/TankSpinner.tsx:34  #555  (no token)
+components/TankSpinner.tsx:38  #F5A623  (no token)
+components/TankSpinner.tsx:39  #D4891A  (no token)
+components/TankSpinner.tsx:40  #D4891A  (no token)
+components/TankSpinner.tsx:41  #1A1A1A  (no token)
+components/TankSpinner.tsx:48  #888  (no token)
+components/TopBanner.tsx:94  #FFF  (no token)
+components/TopBanner.tsx:94  #FFF  (no token)
+components/YouTubeSection.tsx:100  #FFF  (no token)
+components/YouTubeSection.tsx:102  #FFF  (no token)
+components/YouTubeSection.tsx:166  #FFF  (no token)
+components/YouTubeSection.tsx:166  #FFF  (no token)
+
+=== Files with the most findings ===
+    82  app/leaderboard/page.tsx
+    52  components/MatchForm.tsx
+    27  app/season-1/page.tsx
+    23  components/RecentMatchesAdmin.tsx
+    18  components/PlayerMatchHistory.tsx
+    12  components/FeedbackProvider.tsx
+    10  app/admin/deleted-matches/page.tsx
+     9  components/MergeDuplicateAccounts.tsx
+     8  components/MergeGuestIntoAccount.tsx
+     7  app/admin/page.tsx
+     7  app/error.tsx
+     7  app/loading.tsx
+     7  app/tournaments/standings/page.tsx
+     7  components/TankSpinner.tsx
+     6  components/ResetSeasonRatings.tsx
+     5  app/login/page.tsx
+     5  app/not-found.tsx
+     5  app/signup/page.tsx
+     5  components/RecalculateRatings.tsx
+     5  components/YouTubeSection.tsx

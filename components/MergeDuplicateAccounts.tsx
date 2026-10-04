@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { logAdminAction } from "@/lib/auditLog";
+import { useFeedback } from "@/components/FeedbackProvider";
 
 type Match = {
   id: string;
@@ -25,6 +26,7 @@ type Match = {
  */
 export default function MergeDuplicateAccounts({ adminUsername = "unknown" }: { adminUsername?: string }) {
   const supabase = createClient();
+  const fb = useFeedback();
   const [memberNames, setMemberNames] = useState<string[]>([]);
   const [primaryUsername, setPrimaryUsername] = useState("");
   const [secondaryUsername, setSecondaryUsername] = useState("");
@@ -57,9 +59,12 @@ export default function MergeDuplicateAccounts({ adminUsername = "unknown" }: { 
       return;
     }
 
-    const confirmed = window.confirm(
-      `Merge "${secondary}" into "${primary}"?\n\n"${primary}" will keep all combined match history.\n"${secondary}" will be BANNED and its rating reset.\n\nThis cannot be easily undone. Continue?`
-    );
+    const confirmed = await fb.confirm({
+      title: "Merge these accounts?",
+      message: `"${primary}" will keep all combined match history.\n"${secondary}" will be BANNED and its rating reset.\n\nThis cannot be easily undone.`,
+      confirmLabel: "Merge accounts",
+      danger: true,
+    });
     if (!confirmed) return;
 
     setRunning(true);

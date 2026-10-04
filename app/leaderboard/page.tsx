@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import "@/app/leaderboard.css";
 import TankSpinner from "@/components/TankSpinner";
 import { logAdminAction } from "@/lib/auditLog";
+import { useFeedback } from "@/components/FeedbackProvider";
+import { restoreMatchFromTrash } from "@/lib/matchTrash";
 
 type Match = {
   id: string;
@@ -35,6 +37,7 @@ type DateRange = "all" | "week" | "month";
 
 export default function LeaderboardPage() {
   const supabase = createClient();
+  const fb = useFeedback();
   const [view, setView] = useState<"team" | "ffa">("team");
   const [teamSizeFilter, setTeamSizeFilter] = useState<"all" | "2v2" | "3v3" | "4v4">("all");
   const [matches, setMatches] = useState<Match[]>([]);
@@ -114,10 +117,25 @@ export default function LeaderboardPage() {
   }, []);
 
   async function handleDeleteMatch(id: string) {
-    const confirmed = window.confirm("Delete this match? This cannot be undone.");
+    const confirmed = await fb.confirm({
+      title: "Delete this match?",
+      message:
+        "Its rating changes will be reversed. You'll get an Undo button right after, and it stays recoverable from Admin → Deleted matches.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
     if (!confirmed) return;
 
     const matchToDelete = matches.find((m) => m.id === id);
+
+    // Delete first, so a failure here can't leave ratings reversed for a
+    // match that still exists.
+    const { error: deleteError } = await supabase.from("matches").delete().eq("id", id);
+    if (deleteError) {
+      fb.error(`Couldn't delete the match: ${deleteError.message}`);
+      return;
+    }
+
     if (matchToDelete?.rating_changes) {
       const column = matchToDelete.mode === "ffa" ? "rating_ffa" : "rating_team";
       const usernames = Object.keys(matchToDelete.rating_changes);
@@ -150,23 +168,53 @@ export default function LeaderboardPage() {
       }
     }
 
-    await supabase.from("matches").delete().eq("id", id);
     await logAdminAction(supabase, adminUsername, "delete_match", {
       match_id: id,
       mode: matchToDelete?.mode,
       participants: matchToDelete?.participants,
       winners: matchToDelete?.winners,
     });
+    fb.toast("Match deleted.", {
+      kind: "info",
+      action: {
+        label: "Undo",
+        onClick: () => {
+          void undoDeleteMatch(id);
+        },
+      },
+    });
+    loadData();
+  }
+
+  async function undoDeleteMatch(id: string) {
+    const result = await restoreMatchFromTrash(supabase, { matchId: id });
+    if (!result.ok) {
+      fb.error(`Couldn't undo the delete: ${result.error}`);
+      return;
+    }
+    await logAdminAction(supabase, adminUsername, "restore_match", { match_id: id, via: "undo" });
+    fb.success("Match restored.");
     loadData();
   }
 
   async function handleReportMatch(id: string) {
-    const reason = window.prompt("Why are you reporting this match? (e.g. wrong winner, suspected cheating)");
-    if (!reason || !reason.trim()) return;
-
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
+    if (!user) {
+      fb.info("Please log in to report a match.");
+      return;
+    }
+
+    const reason = await fb.prompt({
+      title: "Report this match",
+      message: "Tell the admins what's wrong with this result so they can review it.",
+      placeholder: "e.g. wrong winner, suspected cheating",
+      multiline: true,
+      confirmLabel: "Send report",
+    });
+    if (!reason || !reason.trim()) return;
 
     const { error } = await supabase.from("match_reports").insert({
       match_id: id,
@@ -175,9 +223,9 @@ export default function LeaderboardPage() {
     });
 
     if (error) {
-      alert(`Failed to submit report: ${error.message}`);
+      fb.error(`Couldn't submit the report: ${error.message}`);
     } else {
-      alert("Report submitted. An admin will review this match.");
+      fb.success("Report submitted. An admin will review this match.");
     }
   }
 
@@ -206,7 +254,7 @@ export default function LeaderboardPage() {
         .upload(path, editReplayFile);
 
       if (uploadError) {
-        alert(`Replay upload failed: ${uploadError.message}`);
+        fb.error(`Replay upload failed: ${uploadError.message}`);
         setSavingReplay(false);
         return;
       }
@@ -218,13 +266,18 @@ export default function LeaderboardPage() {
     }
 
     if (!replayUrl) {
-      alert("Paste a link or choose a file first.");
+      fb.info("Paste a link or choose a file first.");
       setSavingReplay(false);
       return;
     }
 
-    await supabase.from("matches").update({ replay_url: replayUrl }).eq("id", matchId);
+    const { error: saveError } = await supabase.from("matches").update({ replay_url: replayUrl }).eq("id", matchId);
     setSavingReplay(false);
+    if (saveError) {
+      fb.error(`Couldn't save the replay: ${saveError.message}`);
+      return;
+    }
+    fb.success("Replay added.");
     cancelEditingReplay();
     loadData();
   }

@@ -1,0 +1,41 @@
+/* Cinematic homepage — motion + hover styles. Everything here is optional
+   decoration, and all of it switches off for people who prefer reduced motion. */
+
+@keyframes cz-sweep {
+  to { transform: rotate(360deg); }
+}
+@keyframes cz-ping {
+  0%   { transform: scale(0.6); opacity: 0.95; }
+  100% { transform: scale(3);   opacity: 0; }
+}
+@keyframes cz-rise {
+  from { opacity: 0; transform: translateY(46px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes cz-blink {
+  from { opacity: 1; }
+  to   { opacity: 0.25; }
+}
+
+.cz-sweep { animation: cz-sweep 8s linear infinite; }
+.cz-ping  { transform-box: fill-box; transform-origin: center; animation: cz-ping 3.2s ease-out infinite; }
+.cz-rise  { animation: cz-rise 0.95s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.cz-blink { animation: cz-blink 1.2s ease-in-out infinite alternate; }
+
+.cz-d1 { animation-delay: 0.1s; }
+.cz-d2 { animation-delay: 0.28s; }
+.cz-d3 { animation-delay: 0.46s; }
+.cz-d4 { animation-delay: 0.64s; }
+.cz-d5 { animation-delay: 0.82s; }
+
+.cz-poster-art { transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.cz-poster:hover .cz-poster-art { transform: scale(1.04); }
+
+.cz-podium-link { transition: transform 0.25s ease, border-color 0.25s ease; }
+.cz-podium-link:hover { transform: translateY(-4px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-sweep, .cz-ping, .cz-rise, .cz-blink { animation: none !important; }
+  .cz-poster-art, .cz-podium-link { transition: none !important; }
+  .cz-poster:hover .cz-poster-art, .cz-podium-link:hover { transform: none !important; }
+}

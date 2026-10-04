@@ -48,24 +48,3 @@ body {
 [dir="rtl"] .cz-nav-link::after {
   transform-origin: right;
 }
-
-/* === commander-p0 start (managed by p0-fix.js) === */
-/* Visible keyboard focus everywhere. !important so inline outline:none can't hide it. */
-:focus-visible {
-  outline: 2px solid #E8A63D !important;
-  outline-offset: 2px !important;
-}
-/* No ring on mouse click, only on keyboard navigation. */
-:focus:not(:focus-visible) {
-  outline: none;
-}
-/* Respect the OS "reduce motion" setting for every animation on the site. */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-/* === commander-p0 end === */

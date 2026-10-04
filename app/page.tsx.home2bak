@@ -1,0 +1,154 @@
+"use client";
+
+import Link from "next/link";
+import { FolderOpen, Video, Info, Mail, ArrowUpRight } from "lucide-react";
+import { C } from "@/lib/theme";
+import LiveBanner from "@/components/LiveBanner";
+import NewsFeed from "@/components/NewsFeed";
+import YouTubeSection from "@/components/YouTubeSection";
+import FadeIn from "@/components/FadeIn";
+import CinematicHero from "@/components/home/CinematicHero";
+import FactsStrip from "@/components/home/FactsStrip";
+import WaysIn from "@/components/home/WaysIn";
+import FrontLine from "@/components/home/FrontLine";
+import JoinBanner from "@/components/home/JoinBanner";
+import { useHomeData } from "@/components/home/useHomeData";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { HOME_TEXT } from "@/components/home/homeText";
+import "@/app/animations.css";
+
+const CORNERS = [
+  "top-2 left-2 border-t border-l",
+  "top-2 right-2 border-t border-r",
+  "bottom-2 left-2 border-b border-l",
+  "bottom-2 right-2 border-b border-r",
+];
+
+export default function Home() {
+  const { t, locale } = useLanguage();
+  const text = HOME_TEXT[locale === "ar" ? "ar" : "en"];
+  const data = useHomeData(); // one shared fetch for the hero, the radar and the podium
+
+  // The ladder, replays and tournaments are covered by "Three ways in";
+  // these are the remaining sectors.
+  const MORE = [
+    { icon: FolderOpen, title: t("home.opsDownloadsTitle"), description: t("home.opsDownloadsDesc"), href: "/downloads", tag: t("home.opsDownloadsTag") },
+    { icon: Video, title: t("home.opsVideosTitle"), description: t("home.opsVideosDesc"), href: "/videos", tag: t("home.opsVideosTag") },
+    { icon: Info, title: t("home.opsAboutTitle"), description: t("home.opsAboutDesc"), href: "/about", tag: t("home.opsAboutTag") },
+    { icon: Mail, title: t("home.opsContactTitle"), description: t("home.opsContactDesc"), href: "/contact", tag: t("home.opsContactTag") },
+  ];
+
+  return (
+    <main className="min-h-screen w-full" style={{ background: C.void }}>
+      <CinematicHero data={data} />
+      <FactsStrip />
+
+      <div className="mx-auto max-w-6xl px-6 md:px-10">
+        <FadeIn>
+          <div className="mt-10 empty:hidden">
+            <LiveBanner />
+          </div>
+        </FadeIn>
+      </div>
+
+      <WaysIn />
+      <FrontLine data={data} />
+
+      <div className="mx-auto max-w-6xl px-6 pb-16 md:px-10">
+        <FadeIn>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="cz-display text-2xl uppercase" style={{ fontWeight: 600 }}>
+              {t("home.latest")}
+            </h2>
+            <Link href="/news" className="text-xs uppercase tracking-widest" style={{ color: C.amber }}>
+              {t("home.viewAll")}
+            </Link>
+          </div>
+          <NewsFeed limit={3} />
+        </FadeIn>
+
+        <FadeIn>
+          <YouTubeSection />
+        </FadeIn>
+
+        <FadeIn>
+          <div className="mt-16">
+            <div className="text-[11px] uppercase tracking-[0.24em]" style={{ color: C.radar }}>
+              {text.exploreEyebrow}
+            </div>
+            <section className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {MORE.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="cz-card cz-hover-lift group relative block p-5"
+                    style={{ background: C.panel, border: `1px solid ${C.line}` }}
+                  >
+                    {CORNERS.map((pos) => (
+                      <span
+                        key={pos}
+                        aria-hidden="true"
+                        className={`cz-bracket pointer-events-none absolute h-3 w-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${pos}`}
+                        style={{ borderColor: C.amber }}
+                      />
+                    ))}
+                    <div className="mb-5 text-[10px] uppercase tracking-widest" style={{ color: C.muted }}>
+                      {item.tag}
+                    </div>
+                    <Icon size={22} style={{ color: C.amber }} />
+                    <h3 className="mt-4 text-base" style={{ color: C.paper, fontWeight: 500 }}>
+                      {item.title}
+                    </h3>
+                    <p className="mt-2 text-xs" style={{ color: C.muted }}>
+                      {item.description}
+                    </p>
+                    <div
+                      className="mt-5 flex items-center justify-between pt-3 text-xs uppercase tracking-widest"
+                      style={{ borderTop: `1px solid ${C.line}`, color: C.amber }}
+                    >
+                      <span>{t("common.enter")}</span>
+                      <ArrowUpRight size={14} />
+                    </div>
+                  </Link>
+                );
+              })}
+            </section>
+          </div>
+        </FadeIn>
+
+        <FadeIn>
+          <Link
+            href="/donate"
+            className="cz-card cz-hover-lift group relative mt-10 block p-6"
+            style={{ background: C.panel, border: `1px solid ${C.radar}` }}
+          >
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <span className="text-[10px] uppercase tracking-widest" style={{ color: C.radar }}>
+                  {t("home.supportUs")}
+                </span>
+                <h3 className="cz-display mt-1 text-xl uppercase" style={{ color: C.paper, fontWeight: 600 }}>
+                  {t("home.donateTitle")}
+                </h3>
+                <p className="mt-2 text-xs" style={{ color: C.muted }}>
+                  {t("home.donateDesc")}
+                </p>
+              </div>
+              <span
+                className="inline-flex shrink-0 items-center gap-2 px-6 py-3 text-xs uppercase tracking-widest"
+                style={{ border: `1px solid ${C.radar}`, color: C.radar }}
+              >
+                {t("home.donate")}
+                <ArrowUpRight size={14} />
+              </span>
+            </div>
+          </Link>
+        </FadeIn>
+      </div>
+
+      <JoinBanner />
+    </main>
+  );
+}

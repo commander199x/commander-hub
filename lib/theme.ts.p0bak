@@ -9,8 +9,6 @@ export const C = {
   radar: "#8FBF4F",
   paper: "#EDEAE0",
   muted: "#83866F",
-  danger: "#DC2626",
-  dangerHover: "#B91C1C",
 } as const;
 
 export const DISCORD_URL = "https://discord.gg/TvFervWbTk";
