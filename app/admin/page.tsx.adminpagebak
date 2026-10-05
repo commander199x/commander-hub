@@ -1,0 +1,286 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import MatchForm from "@/components/MatchForm";
+import RecentMatchesAdmin from "@/components/RecentMatchesAdmin";
+import RecalculateRatings from "@/components/RecalculateRatings";
+import ResetSeasonRatings from "@/components/ResetSeasonRatings";
+import MergeGuestIntoAccount from "@/components/MergeGuestIntoAccount";
+import MergeDuplicateAccounts from "@/components/MergeDuplicateAccounts";
+import TankSpinner from "@/components/TankSpinner";
+import { logAdminAction } from "@/lib/auditLog";
+import { useFeedback } from "@/components/FeedbackProvider";
+import "@/app/admin.css";
+
+interface Profile {
+  id: string;
+  username: string;
+  banned: boolean;
+  is_admin: boolean;
+  is_team: boolean;
+  is_owner: boolean;
+  wins: number;
+  losses: number;
+}
+
+export default function AdminPage() {
+  const router = useRouter();
+  const supabase = createClient();
+  const fb = useFeedback();
+
+  const [loading, setLoading] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
+  const [users, setUsers] = useState<Profile[]>([]);
+  const [search, setSearch] = useState("");
+  const [adminUsername, setAdminUsername] = useState<string>("unknown");
+
+  useEffect(() => {
+    async function checkAccessAndLoad() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      const { data: myProfile } = await supabase
+        .from("profiles")
+        .select("is_admin, username")
+        .eq("id", user.id)
+        .single();
+
+      if (!myProfile?.is_admin) {
+        router.push("/");
+        return;
+      }
+
+      setAuthorized(true);
+      setAdminUsername(myProfile.username ?? "unknown");
+
+      const { data: allUsers } = await supabase
+        .from("profiles")
+        .select("id, username, banned, is_admin, is_team, is_owner, wins, losses")
+        .order("username", { ascending: true });
+
+      setUsers(allUsers ?? []);
+      setLoading(false);
+    }
+
+    checkAccessAndLoad();
+  }, [router, supabase]);
+
+  async function toggleBan(id: string, current: boolean) {
+    const target = users.find((u) => u.id === id);
+
+    // Banning is a big action, so ask first. (Unbanning doesn't need a prompt.)
+    if (!current) {
+      const ok = await fb.confirm({
+        title: `Ban ${target?.username ?? "this user"}?`,
+        message: "Their account will be marked as banned until you unban them.",
+        confirmLabel: "Ban",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ banned: !current })
+      .eq("id", id);
+
+    if (error) {
+      fb.error(`Couldn't update the ban: ${error.message}`);
+      return;
+    }
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, banned: !current } : u))
+    );
+    await logAdminAction(supabase, adminUsername, !current ? "ban_user" : "unban_user", {
+      target_username: target?.username,
+    });
+    fb.success(`${target?.username ?? "User"} ${!current ? "banned" : "unbanned"}.`);
+  }
+
+  async function deleteAllMessages(id: string, username: string) {
+    const confirmed = await fb.confirm({
+      title: `Delete all messages from ${username}?`,
+      message: "Every chat message they've posted will be permanently removed. This cannot be undone.",
+      confirmLabel: "Delete messages",
+      danger: true,
+    });
+    if (!confirmed) return;
+
+    const { error } = await supabase.from("messages").delete().eq("user_id", id);
+    if (error) {
+      fb.error(`Couldn't delete the messages: ${error.message}`);
+      return;
+    }
+
+    await logAdminAction(supabase, adminUsername, "delete_all_messages", { target_username: username });
+    fb.success(`Deleted all messages from ${username}.`);
+  }
+
+  async function toggleTeam(id: string, current: boolean) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ is_team: !current })
+      .eq("id", id);
+
+    if (error) {
+      fb.error(`Couldn't update the team status: ${error.message}`);
+      return;
+    }
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, is_team: !current } : u))
+    );
+  }
+
+  async function adjustWins(id: string, delta: number) {
+    const user = users.find((u) => u.id === id);
+    if (!user) return;
+    const newWins = Math.max(0, user.wins + delta);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ wins: newWins })
+      .eq("id", id);
+
+    if (error) {
+      fb.error(`Couldn't update wins: ${error.message}`);
+      return;
+    }
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, wins: newWins } : u))
+    );
+  }
+
+  async function adjustLosses(id: string, delta: number) {
+    const user = users.find((u) => u.id === id);
+    if (!user) return;
+    const newLosses = Math.max(0, user.losses + delta);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ losses: newLosses })
+      .eq("id", id);
+
+    if (error) {
+      fb.error(`Couldn't update losses: ${error.message}`);
+      return;
+    }
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, losses: newLosses } : u))
+    );
+  }
+
+  if (loading) {
+    return (
+      <main className="admin-page" style={{ display: "flex", justifyContent: "center", padding: "3rem" }}>
+        <TankSpinner label="Loading admin panel..." />
+      </main>
+    );
+  }
+
+  if (!authorized) return null;
+
+  const filtered = users.filter((u) =>
+    u.username.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <main className="admin-page">
+      <div className="admin-panel">
+        <MatchForm allUsers={users.map((u) => ({ username: u.username }))} />
+
+        <RecentMatchesAdmin adminUsername={adminUsername} />
+
+        <RecalculateRatings adminUsername={adminUsername} />
+
+        <MergeGuestIntoAccount adminUsername={adminUsername} />
+
+        <MergeDuplicateAccounts adminUsername={adminUsername} />
+
+        <ResetSeasonRatings adminUsername={adminUsername} />
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h1>User Moderation</h1>
+          <div style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
+            <Link href="/admin/deleted-matches" style={{ fontSize: "0.8rem", color: "#f5a623" }}>
+              Deleted matches →
+            </Link>
+            <Link href="/admin/audit-log" style={{ fontSize: "0.8rem", color: "#f5a623" }}>
+              View Audit Log →
+            </Link>
+          </div>
+        </div>
+
+        <input
+          type="text"
+          placeholder="Search username..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="admin-search"
+        />
+
+        <div className="admin-user-list">
+          {filtered.map((u) => (
+            <div key={u.id} className="admin-user-row">
+              <span className="admin-username">
+                {u.username}
+                {u.is_owner && <span className="admin-badge admin-badge-owner">OWNER</span>}
+                {u.is_admin && <span className="admin-badge">ADMIN</span>}
+                {u.is_team && <span className="admin-badge admin-badge-team">TEAM</span>}
+              </span>
+              <div className="admin-stats-controls">
+                <span className="admin-stat-label">W</span>
+                <button className="admin-stat-btn" onClick={() => adjustWins(u.id, -1)}>-</button>
+                <span className="admin-stat-value admin-stat-wins">{u.wins}</span>
+                <button className="admin-stat-btn" onClick={() => adjustWins(u.id, 1)}>+</button>
+
+                <span className="admin-stat-label">L</span>
+                <button className="admin-stat-btn" onClick={() => adjustLosses(u.id, -1)}>-</button>
+                <span className="admin-stat-value admin-stat-losses">{u.losses}</span>
+                <button className="admin-stat-btn" onClick={() => adjustLosses(u.id, 1)}>+</button>
+              </div>
+              <div className="admin-actions">
+                <button
+                  className={u.is_team ? "admin-unteam-btn" : "admin-team-btn"}
+                  onClick={() => toggleTeam(u.id, u.is_team)}
+                >
+                  {u.is_team ? "Remove Team" : "Make Team"}
+                </button>
+                <button
+                  className="admin-delete-msgs-btn"
+                  onClick={() => deleteAllMessages(u.id, u.username)}
+                >
+                  Delete Messages
+                </button>
+                <button
+                  className={u.banned ? "admin-unban-btn" : "admin-ban-btn"}
+                  onClick={() => toggleBan(u.id, u.banned)}
+                  disabled={u.is_admin || u.is_owner}
+                  title={u.is_admin || u.is_owner ? "Cannot ban an admin/owner" : undefined}
+                >
+                  {u.banned ? "Unban" : "Ban"}
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {filtered.length === 0 && (
+            <p className="admin-empty">No users found.</p>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
