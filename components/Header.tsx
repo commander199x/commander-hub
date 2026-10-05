@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, LogIn, ChevronDown, UserRound, Pencil, LogOut, ArrowUpRight } from "lucide-react";
@@ -360,9 +361,10 @@ export default function Header() {
         style={{ insetInlineStart: 0, width: `${progress * 100}%`, background: `linear-gradient(90deg, ${C.amberDim}, ${C.amber})`, boxShadow: progress > 0 ? "0 0 8px rgba(232,166,61,0.6)" : "none" }}
       />
 
-      {/* Mobile menu: full screen */}
-      {open && (
-        <div className="czh2-overlay fixed inset-x-0 bottom-0 z-40 overflow-y-auto lg:hidden" style={{ top: "var(--cz-header-h, 64px)", background: "rgba(10,12,8,0.98)" }}>
+      {/* Mobile menu: full screen. Rendered on <body> through a portal, because the header's
+          blur (backdrop-filter) would otherwise trap a fixed overlay inside the header's own box. */}
+      {open && typeof document !== "undefined" && createPortal(
+        <div className="czh2-overlay fixed inset-x-0 bottom-0 z-[45] overflow-y-auto lg:hidden" style={{ top: "var(--cz-header-h, 64px)", background: "rgba(10,12,8,0.98)" }}>
           <nav className="flex flex-col px-6 pb-10 pt-4" aria-label={tx.menu}>
             {NAV.map((item, i) => {
               const active = isActive(item.href);
@@ -428,7 +430,8 @@ export default function Header() {
               <ArrowUpRight size={15} className="rtl:-scale-x-100" aria-hidden="true" />
             </a>
           </nav>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );
