@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
+import { ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { C } from "@/lib/theme";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { AuthShell, Field, PasswordInput, DiscordButton, SubmitButton, ErrorBox, AuthLink } from "@/components/auth/AuthShell";
 import "@/app/auth.css";
 
 // Real Turnstile Site Key
@@ -11,14 +15,53 @@ const TURNSTILE_SITE_KEY = "0x4AAAAAAEiHWtic0AyMmCY1";
 
 declare global {
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     turnstile: any;
     onTurnstileLoadLogin: () => void;
   }
 }
 
+// Arabic needs a native review.
+const TEXT = {
+  en: {
+    eyebrow: "Welcome back",
+    title: "Log in",
+    discord: "Continue with Discord",
+    redirecting: "Redirecting…",
+    email: "Email",
+    password: "Password",
+    forgot: "Forgot password?",
+    captcha: "Security check",
+    submit: "Log in",
+    submitting: "Logging in…",
+    noAccount: "No account?",
+    signup: "Sign up",
+    needCaptcha: "Please complete the CAPTCHA.",
+    confirmEmail: "Please confirm your email before logging in. Check your inbox for the confirmation link.",
+  },
+  ar: {
+    eyebrow: "أهلاً بعودتك",
+    title: "تسجيل الدخول",
+    discord: "المتابعة عبر ديسكورد",
+    redirecting: "جارٍ التحويل…",
+    email: "البريد الإلكتروني",
+    password: "كلمة المرور",
+    forgot: "نسيت كلمة المرور؟",
+    captcha: "التحقق الأمني",
+    submit: "دخول",
+    submitting: "جارٍ الدخول…",
+    noAccount: "ليس لديك حساب؟",
+    signup: "أنشئ حساباً",
+    needCaptcha: "يرجى إكمال التحقق.",
+    confirmEmail: "يرجى تأكيد بريدك الإلكتروني قبل تسجيل الدخول. تفقّد صندوق الوارد لرابط التأكيد.",
+  },
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { locale } = useLanguage();
+  const tx = TEXT[locale === "ar" ? "ar" : "en"];
   const captchaRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -34,6 +77,7 @@ export default function LoginPage() {
     if (turnstileReady && window.turnstile && captchaRef.current && !widgetId.current) {
       widgetId.current = window.turnstile.render(captchaRef.current, {
         sitekey: TURNSTILE_SITE_KEY,
+        theme: "dark",
         callback: (token: string) => setCaptchaToken(token),
         "expired-callback": () => setCaptchaToken(null),
       });
@@ -45,7 +89,7 @@ export default function LoginPage() {
     setError(null);
 
     if (!captchaToken) {
-      setError("Please complete the CAPTCHA.");
+      setError(tx.needCaptcha);
       return;
     }
 
@@ -61,7 +105,7 @@ export default function LoginPage() {
 
     if (loginError) {
       if (loginError.message.toLowerCase().includes("email not confirmed")) {
-        setError("Please confirm your email before logging in. Check your inbox for the confirmation link.");
+        setError(tx.confirmEmail);
       } else {
         setError(loginError.message);
       }
@@ -101,74 +145,38 @@ export default function LoginPage() {
         }}
       />
 
-      <main className="auth-page">
-        <form onSubmit={handleLogin} className="auth-form">
-          <h1>Log in</h1>
+      <AuthShell eyebrow={tx.eyebrow} title={tx.title}>
+        <DiscordButton onClick={handleDiscordLogin} loading={discordLoading} label={tx.discord} loadingLabel={tx.redirecting} />
 
-          <button
-            type="button"
-            onClick={handleDiscordLogin}
-            disabled={discordLoading}
-            style={{
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem",
-              background: "#5865F2",
-              color: "#fff",
-              fontWeight: 600,
-              padding: "0.7rem",
-              border: "none",
-              borderRadius: "4px",
-              cursor: discordLoading ? "default" : "pointer",
-              marginBottom: "1rem",
-              opacity: discordLoading ? 0.7 : 1,
-            }}
-          >
-            {discordLoading ? "Redirecting..." : "Continue with Discord"}
-          </button>
+        <form onSubmit={handleLogin} noValidate={false}>
+          <Field id="email" label={tx.email}>
+            <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="czau-input" />
+          </Field>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", margin: "0.5rem 0 1.25rem" }}>
-            <div style={{ flex: 1, height: "1px", background: "#333" }} />
-            <span style={{ fontSize: "0.7rem", color: "#666", textTransform: "uppercase" }}>or</span>
-            <div style={{ flex: 1, height: "1px", background: "#333" }} />
+          <Field id="password" label={tx.password}>
+            <PasswordInput id="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <div className="mt-2 text-end text-xs">
+              <AuthLink href="/forgot-password">{tx.forgot}</AuthLink>
+            </div>
+          </Field>
+
+          <div className="mb-5">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em]" style={{ color: captchaToken ? C.radar : C.muted }}>
+              <ShieldCheck size={13} aria-hidden="true" />
+              {tx.captcha}
+            </div>
+            <div ref={captchaRef} className="min-h-[65px]" />
           </div>
 
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+          <ErrorBox message={error} />
 
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+          <SubmitButton loading={loading} label={tx.submit} loadingLabel={tx.submitting} />
 
-          <div ref={captchaRef} style={{ margin: "1rem 0" }} />
-
-          {error && <p className="auth-error">{error}</p>}
-
-          <button type="submit" disabled={loading}>
-            {loading ? "Logging in..." : "Log in"}
-          </button>
-
-          <p className="auth-switch">
-            No account? <a href="/signup">Sign up</a>
-          </p>
-          <p className="auth-switch">
-            <a href="/forgot-password">Forgot password?</a>
+          <p className="mt-6 text-center text-sm" style={{ color: C.muted }}>
+            {tx.noAccount} <AuthLink href="/signup">{tx.signup}</AuthLink>
           </p>
         </form>
-      </main>
+      </AuthShell>
     </>
   );
 }

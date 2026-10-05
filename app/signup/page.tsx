@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
+import { ShieldCheck, Check, Circle, MailCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { C } from "@/lib/theme";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { AuthShell, Field, PasswordInput, DiscordButton, SubmitButton, ErrorBox, AuthLink } from "@/components/auth/AuthShell";
 import "@/app/auth.css";
 
 // Real Turnstile Site Key
@@ -10,13 +14,78 @@ const TURNSTILE_SITE_KEY = "0x4AAAAAAEiHWtic0AyMmCY1";
 
 declare global {
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     turnstile: any;
     onTurnstileLoadSignup: () => void;
   }
 }
 
+// Arabic needs a native review.
+const TEXT = {
+  en: {
+    eyebrow: "Enlist",
+    title: "Create account",
+    discord: "Continue with Discord",
+    redirecting: "Redirecting…",
+    username: "Username",
+    ruleLen: "3–24 characters",
+    ruleChars: "Letters, numbers and underscores only",
+    email: "Email",
+    password: "Password",
+    strength: ["Too short", "Weak", "Fair", "Good", "Strong"],
+    minPass: "At least 9 characters",
+    captcha: "Security check",
+    submit: "Sign up",
+    submitting: "Creating account…",
+    haveAccount: "Already have an account?",
+    login: "Log in",
+    badUsername: "Username can only contain letters, numbers, and underscores (no spaces or symbols).",
+    needCaptcha: "Please complete the CAPTCHA.",
+    checkTitle: "Check your email",
+    checkText: (e: string) => `We sent a confirmation link to ${e}. Click it to activate your account, then come back and log in.`,
+    spam: "Didn't get it? Check your spam folder, or",
+    again: "try signing up again",
+  },
+  ar: {
+    eyebrow: "التجنيد",
+    title: "إنشاء حساب",
+    discord: "المتابعة عبر ديسكورد",
+    redirecting: "جارٍ التحويل…",
+    username: "اسم المستخدم",
+    ruleLen: "من 3 إلى 24 حرفاً",
+    ruleChars: "حروف إنجليزية وأرقام وشرطة سفلية فقط",
+    email: "البريد الإلكتروني",
+    password: "كلمة المرور",
+    strength: ["قصيرة جداً", "ضعيفة", "مقبولة", "جيدة", "قوية"],
+    minPass: "9 أحرف على الأقل",
+    captcha: "التحقق الأمني",
+    submit: "إنشاء الحساب",
+    submitting: "جارٍ إنشاء الحساب…",
+    haveAccount: "لديك حساب بالفعل؟",
+    login: "سجّل الدخول",
+    badUsername: "يمكن أن يحتوي اسم المستخدم على حروف وأرقام وشرطة سفلية فقط (بدون مسافات أو رموز).",
+    needCaptcha: "يرجى إكمال التحقق.",
+    checkTitle: "تفقّد بريدك",
+    checkText: (e: string) => `أرسلنا رابط تأكيد إلى ${e}. اضغط عليه لتفعيل حسابك، ثم عُد وسجّل الدخول.`,
+    spam: "لم يصلك؟ تفقّد مجلد الرسائل غير المرغوبة، أو",
+    again: "حاول التسجيل مرة أخرى",
+  },
+};
+
+function strengthOf(pw: string) {
+  if (pw.length < 9) return 0;
+  let s = 1;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
+  if (/\d/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw) || pw.length >= 14) s++;
+  return Math.min(4, s);
+}
+const STRENGTH_COLORS = ["#F87171", "#F87171", "#E8A63D", "#8FBF4F", "#8FBF4F"];
+
 export default function SignupPage() {
   const supabase = createClient();
+  const { locale } = useLanguage();
+  const tx = TEXT[locale === "ar" ? "ar" : "en"];
   const captchaRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -34,6 +103,7 @@ export default function SignupPage() {
     if (turnstileReady && window.turnstile && captchaRef.current && !widgetId.current) {
       widgetId.current = window.turnstile.render(captchaRef.current, {
         sitekey: TURNSTILE_SITE_KEY,
+        theme: "dark",
         callback: (token: string) => setCaptchaToken(token),
         "expired-callback": () => setCaptchaToken(null),
       });
@@ -46,12 +116,12 @@ export default function SignupPage() {
 
     const usernamePattern = /^[a-zA-Z0-9_]+$/;
     if (!usernamePattern.test(username)) {
-      setError("Username can only contain letters, numbers, and underscores (no spaces or symbols).");
+      setError(tx.badUsername);
       return;
     }
 
     if (!captchaToken) {
-      setError("Please complete the CAPTCHA.");
+      setError(tx.needCaptcha);
       return;
     }
 
@@ -96,21 +166,23 @@ export default function SignupPage() {
 
   if (submitted) {
     return (
-      <main className="auth-page">
-        <div className="auth-form">
-          <h1>Check your email</h1>
-          <p className="auth-switch" style={{ marginTop: 0 }}>
-            We sent a confirmation link to <strong>{email}</strong>. Click it
-            to activate your account, then come back and log in.
-          </p>
-          <p className="auth-switch">
-            Didn&apos;t get it? Check your spam folder, or{" "}
-            <a href="/signup">try signing up again</a>.
+      <AuthShell eyebrow={tx.eyebrow} title={tx.checkTitle}>
+        <div className="czau-in border p-6 text-center" style={{ borderColor: C.amberDim, background: "linear-gradient(160deg, rgba(232,166,61,0.10), #12150E 60%)" }}>
+          <span className="czau-pop mx-auto flex h-20 w-20 items-center justify-center rounded-full" style={{ background: "rgba(143,191,79,0.12)", border: `1px solid ${C.radar}`, boxShadow: "0 0 30px rgba(143,191,79,0.25)" }}>
+            <MailCheck size={36} style={{ color: C.radar }} aria-hidden="true" />
+          </span>
+          <p className="mt-5 text-base leading-relaxed">{tx.checkText(email)}</p>
+          <p className="mt-4 text-sm" style={{ color: C.muted }}>
+            {tx.spam} <AuthLink href="/signup">{tx.again}</AuthLink>.
           </p>
         </div>
-      </main>
+      </AuthShell>
     );
   }
+
+  const lenOk = username.length >= 3 && username.length <= 24;
+  const charsOk = username.length > 0 && /^[a-zA-Z0-9_]+$/.test(username);
+  const strength = strengthOf(password);
 
   return (
     <>
@@ -123,88 +195,84 @@ export default function SignupPage() {
         }}
       />
 
-      <main className="auth-page">
-        <form onSubmit={handleSignup} className="auth-form">
-          <h1>Create account</h1>
+      <AuthShell eyebrow={tx.eyebrow} title={tx.title}>
+        <DiscordButton onClick={handleDiscordSignup} loading={discordLoading} label={tx.discord} loadingLabel={tx.redirecting} />
 
-          <button
-            type="button"
-            onClick={handleDiscordSignup}
-            disabled={discordLoading}
-            style={{
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem",
-              background: "#5865F2",
-              color: "#fff",
-              fontWeight: 600,
-              padding: "0.7rem",
-              border: "none",
-              borderRadius: "4px",
-              cursor: discordLoading ? "default" : "pointer",
-              marginBottom: "1rem",
-              opacity: discordLoading ? 0.7 : 1,
-            }}
+        <form onSubmit={handleSignup}>
+          <Field
+            id="username"
+            label={tx.username}
+            hint={
+              <ul className="flex flex-col gap-1">
+                {[
+                  [lenOk, tx.ruleLen],
+                  [charsOk, tx.ruleChars],
+                ].map(([ok, text]) => (
+                  <li key={String(text)} className="flex items-center gap-2 transition-colors" style={{ color: ok ? C.radar : C.muted }}>
+                    {ok ? <Check size={13} className="czau-pop" aria-hidden="true" /> : <Circle size={11} aria-hidden="true" />}
+                    {text}
+                  </li>
+                ))}
+              </ul>
+            }
           >
-            {discordLoading ? "Redirecting..." : "Continue with Discord"}
-          </button>
+            <input
+              id="username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              minLength={3}
+              maxLength={24}
+              pattern="[a-zA-Z0-9_]+"
+              title="Letters, numbers, and underscores only"
+              className="czau-input"
+              dir="ltr"
+            />
+          </Field>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", margin: "0.5rem 0 1.25rem" }}>
-            <div style={{ flex: 1, height: "1px", background: "#333" }} />
-            <span style={{ fontSize: "0.7rem", color: "#666", textTransform: "uppercase" }}>or</span>
-            <div style={{ flex: 1, height: "1px", background: "#333" }} />
+          <Field id="email" label={tx.email}>
+            <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="czau-input" />
+          </Field>
+
+          <Field
+            id="password"
+            label={tx.password}
+            hint={
+              <div>
+                <div className="flex gap-1" dir="ltr" aria-hidden="true">
+                  {[1, 2, 3, 4].map((n) => (
+                    <span key={n} className="h-1.5 flex-1 transition-colors duration-300" style={{ background: password && strength >= n ? STRENGTH_COLORS[strength] : C.line }} />
+                  ))}
+                </div>
+                <div className="mt-1.5 flex justify-between">
+                  <span>{tx.minPass}</span>
+                  {password && <span style={{ color: STRENGTH_COLORS[strength], fontWeight: 600 }}>{tx.strength[strength]}</span>}
+                </div>
+              </div>
+            }
+          >
+            <PasswordInput id="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={9} />
+          </Field>
+
+          <div className="mb-5">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em]" style={{ color: captchaToken ? C.radar : C.muted }}>
+              <ShieldCheck size={13} aria-hidden="true" />
+              {tx.captcha}
+            </div>
+            <div ref={captchaRef} className="min-h-[65px]" />
           </div>
 
-          <label htmlFor="username">Username</label>
-          <input
-            id="username"
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            minLength={3}
-            maxLength={24}
-            pattern="[a-zA-Z0-9_]+"
-            title="Letters, numbers, and underscores only"
-          />
-          <p className="auth-switch" style={{ margin: "0.2rem 0 0 0", textAlign: "left", fontSize: "0.7rem" }}>
-            Letters, numbers, and underscores only.
-          </p>
+          <ErrorBox message={error} />
 
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+          <SubmitButton loading={loading} label={tx.submit} loadingLabel={tx.submitting} />
 
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={9}
-          />
-
-          <div ref={captchaRef} style={{ margin: "1rem 0" }} />
-
-          {error && <p className="auth-error">{error}</p>}
-
-          <button type="submit" disabled={loading}>
-            {loading ? "Creating account..." : "Sign up"}
-          </button>
-
-          <p className="auth-switch">
-            Already have an account? <a href="/login">Log in</a>
+          <p className="mt-6 text-center text-sm" style={{ color: C.muted }}>
+            {tx.haveAccount} <AuthLink href="/login">{tx.login}</AuthLink>
           </p>
         </form>
-      </main>
+      </AuthShell>
     </>
   );
 }
