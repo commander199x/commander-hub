@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0A0C08" />
+<title>No signal · Commander</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 32px 24px;
+         background: #0A0C08; color: #EDEAE0; font-family: ui-monospace, "JetBrains Mono", monospace; text-align: center;
+         background-image: linear-gradient(rgba(39,43,30,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(39,43,30,.5) 1px, transparent 1px);
+         background-size: 40px 40px; }
+  .radar { position: relative; width: 180px; height: 180px; margin: 0 auto 28px; border-radius: 50%; border: 2px solid #8FBF4F; overflow: hidden; }
+  .radar::before, .radar::after { content: ""; position: absolute; border-radius: 50%; border: 1px solid #3A4029; }
+  .radar::before { inset: 22%; } .radar::after { inset: 42%; }
+  .sweep { position: absolute; inset: 0; background: conic-gradient(from 0deg, transparent 0deg, transparent 290deg, rgba(143,191,79,.5) 360deg); animation: spin 3s linear infinite; }
+  .dot { position: absolute; left: 64%; top: 28%; width: 10px; height: 10px; border-radius: 50%; background: #F87171; box-shadow: 0 0 12px #F87171; animation: blink 1.4s ease-in-out infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes blink { 0%,100% { opacity: .2; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .sweep, .dot { animation: none; } }
+  .eyebrow { color: #F87171; font-size: 11px; letter-spacing: .28em; text-transform: uppercase; }
+  h1 { font-family: Oswald, Impact, sans-serif; font-size: 44px; text-transform: uppercase; margin: 10px 0 0; letter-spacing: .02em; }
+  p { color: #83866F; max-width: 380px; margin: 14px auto 0; line-height: 1.6; font-size: 14px; }
+  .ar { direction: rtl; font-family: Tajawal, Cairo, sans-serif; margin-top: 10px; }
+  button { margin-top: 28px; min-height: 52px; padding: 0 28px; border: 0; background: #E8A63D; color: #0A0C08; font: inherit; font-weight: 700;
+           letter-spacing: .14em; text-transform: uppercase; cursor: pointer; }
+  button:focus-visible { outline: 2px solid #E8A63D; outline-offset: 3px; }
+</style>
+</head>
+<body>
+  <main>
+    <div class="radar" aria-hidden="true"><div class="sweep"></div><div class="dot"></div></div>
+    <div class="eyebrow">No signal · لا توجد إشارة</div>
+    <h1>You're offline</h1>
+    <p>Commander needs a connection for live ladders, chat and matches. Check your internet and try again.</p>
+    <p class="ar">يحتاج كوماندر إلى اتصال بالإنترنت لعرض التصنيفات والدردشة والمباريات. تحقّق من اتصالك وحاول مجدداً.</p>
+    <button onclick="location.reload()">Retry · إعادة المحاولة</button>
+  </main>
+  <script>window.addEventListener("online", function () { location.reload(); });</script>
+</body>
+</html>

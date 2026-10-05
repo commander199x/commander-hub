@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { Oswald, JetBrains_Mono, Cairo, Tajawal } from "next/font/google";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -9,7 +9,6 @@ import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import "./globals.css";
 import "./tactical.css";
 import { Analytics } from "@vercel/analytics/next";
-import PwaRegister from "@/components/PwaRegister";
 
 const oswald = Oswald({
   subsets: ["latin"],
@@ -70,18 +69,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/favicon.ico",
-    apple: "/icons/apple-touch-icon.png",
   },
-  // Installed on iPhone/iPad: full screen, with the Commander name under the icon
-  appleWebApp: {
-    capable: true,
-    title: "Commander",
-    statusBarStyle: "black-translucent",
-  },
-};
-
-export const viewport: Viewport = {
-  themeColor: "#0A0C08",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -98,7 +86,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Header />
             {children}
             <Analytics />
-            <PwaRegister />
             <Footer />
           </FeedbackProvider>
         </LanguageProvider>
