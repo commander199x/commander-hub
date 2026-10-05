@@ -53,6 +53,38 @@ const CSS = `
 .czam-in { animation: czam-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 /* The existing admin tools keep working inside the new panels: neutralise the old page wrapper only */
 .czam-host.admin-panel { max-width: none !important; width: 100% !important; margin: 0 !important; padding: 0 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; }
+/* ---- Skin for the existing admin tools: the site's look for their inputs, buttons, tables and headings ---- */
+.czam-host { color: #EDEAE0; font-size: 14px; }
+.czam-host h1, .czam-host h2, .czam-host h3, .czam-host h4 { font-family: var(--font-display), Oswald, Impact, sans-serif; text-transform: uppercase; letter-spacing: 0.02em; color: #EDEAE0; font-weight: 700; line-height: 1.1; margin: 0 0 12px; }
+.czam-host h1 { font-size: 22px; } .czam-host h2 { font-size: 20px; } .czam-host h3, .czam-host h4 { font-size: 17px; }
+.czam-host p { color: #83866F; line-height: 1.6; }
+.czam-host a { color: #E8A63D; }
+.czam-host label { color: #83866F; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; }
+.czam-host input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]), .czam-host select, .czam-host textarea {
+  min-height: 44px; max-width: 100%; background: #0A0C08; color: #EDEAE0; border: 1px solid #8A6425; border-radius: 0; padding: 0 12px; font: inherit; font-size: 14px; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.czam-host textarea { padding: 10px 12px; min-height: 90px; }
+.czam-host input:focus, .czam-host select:focus, .czam-host textarea:focus { border-color: #E8A63D; box-shadow: 0 0 0 3px rgba(232,166,61,0.15); }
+.czam-host input[type="checkbox"], .czam-host input[type="radio"] { accent-color: #E8A63D; width: 16px; height: 16px; }
+.czam-host input[type="file"] { color: #83866F; font-size: 13px; }
+.czam-host input[type="file"]::file-selector-button { min-height: 40px; margin-inline-end: 12px; padding: 0 14px; border: 1px solid #8A6425; background: transparent; color: #E8A63D; font: inherit; text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px; cursor: pointer; }
+.czam-host button { min-height: 40px; padding: 0 16px; border: 1px solid #8A6425; border-radius: 0; background: transparent; color: #EDEAE0; font: inherit; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: background-color 0.2s ease, border-color 0.2s ease, filter 0.2s ease; }
+.czam-host button:hover:not(:disabled) { background: #171B10; border-color: #E8A63D; }
+.czam-host button[type="submit"] { background: #E8A63D; border-color: #E8A63D; color: #0A0C08; font-weight: 700; }
+.czam-host button[type="submit"]:hover:not(:disabled) { background: #E8A63D; filter: brightness(1.08); }
+.czam-host button:disabled { opacity: 0.45; cursor: not-allowed; }
+/* destructive buttons stay red */
+.czam-host button[class*="delete"], .czam-host button[class*="ban"], .czam-host button[class*="danger"], .czam-host button[class*="reset"], .czam-host button[class*="remove"], .czam-danger button {
+  border-color: rgba(248,113,113,0.6); color: #F87171; background: transparent; }
+.czam-host button[class*="delete"]:hover:not(:disabled), .czam-host button[class*="ban"]:hover:not(:disabled), .czam-host button[class*="danger"]:hover:not(:disabled), .czam-host button[class*="reset"]:hover:not(:disabled), .czam-host button[class*="remove"]:hover:not(:disabled), .czam-danger button:hover:not(:disabled) {
+  background: #DC2626; border-color: #DC2626; color: #fff; }
+.czam-host table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.czam-host th { text-align: start; font-size: 11px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: #83866F; padding: 10px 12px; border-bottom: 1px solid #3A4029; }
+.czam-host td { padding: 10px 12px; border-bottom: 1px solid #272B1E; vertical-align: middle; }
+.czam-host tr:hover td { background: #171B10; }
+.czam-host hr { border: 0; border-top: 1px solid #272B1E; margin: 16px 0; }
+.czam-host [class*="error"] { color: #F87171; }
+.czam-host [class*="success"] { color: #8FBF4F; }
+.czam-host img { border-radius: 9999px; }
 .czam-row { transition: background-color 0.2s ease; }
 .czam-row:hover { background-color: #171B10 !important; }
 @media (prefers-reduced-motion: reduce) { .czam-in { animation: none !important; } .czam-row { transition: none !important; } }
@@ -503,7 +535,7 @@ export default function AdminPage() {
 
           {/* ================= DANGER ================= */}
           <Section id="danger" icon={AlertTriangle} title="Danger zone" desc="Season reset affects every player. A snapshot is saved to the audit log first." danger delay={0.25}>
-            <div className="czam-host admin-panel"><ResetSeasonRatings adminUsername={adminUsername} /></div>
+            <div className="czam-host czam-danger admin-panel"><ResetSeasonRatings adminUsername={adminUsername} /></div>
           </Section>
         </div>
       </div>
