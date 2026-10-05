@@ -12,10 +12,7 @@ type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoic
 
 const DISMISS_KEY = "cz-install-dismissed-at";
 const DISMISS_DAYS = 14;
-const SHOW_AFTER_MS = 8_000; // how long after the browser allows installing before our card appears
-// iPhone/iPad (Safari) can't show an install button, only "Share → Add to Home Screen" instructions.
-// Turned off for now — set to true to show those instructions again.
-const SHOW_IOS_HINT = false;
+const SHOW_AFTER_MS = 20_000;
 
 const TEXT = {
   en: { title: "Install Commander", text: "Add the app to your home screen — opens full screen, one tap away.", install: "Install", later: "Not now", close: "Close", ios1: "Tap", ios2: "Share", ios3: "then", ios4: "Add to Home Screen" },
@@ -53,10 +50,10 @@ export default function PwaRegister() {
     window.addEventListener("beforeinstallprompt", onPrompt);
 
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    const timer = SHOW_IOS_HINT && isIos ? setTimeout(() => setMode((m) => (m === "none" ? "ios" : m)), SHOW_AFTER_MS) : undefined;
+    const timer = setTimeout(() => setMode((m) => (m === "none" && isIos ? "ios" : m)), SHOW_AFTER_MS);
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
-      if (timer) clearTimeout(timer);
+      clearTimeout(timer);
     };
   }, []);
 
