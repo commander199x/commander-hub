@@ -16,7 +16,6 @@ const TEXT = {
     tournaments: "Tournaments",
     standings: "Standings",
     stats: "Stats",
-    seasons: "Seasons",
     guides: "Guides",
     replays: "Replays",
     chat: "Chat",
@@ -41,7 +40,6 @@ const TEXT = {
     tournaments: "البطولات",
     standings: "الترتيب",
     stats: "الإحصائيات",
-    seasons: "المواسم",
     guides: "الأدلة",
     replays: "الإعادات",
     chat: "الدردشة",
@@ -102,7 +100,7 @@ export default function Footer() {
   const tx = TEXT[lang];
 
   const columns = [
-    { title: tx.play, links: [["/leaderboard", tx.leaderboard], ["/tournaments", tx.tournaments], ["/tournaments/standings", tx.standings], ["/stats", tx.stats], ["/seasons", tx.seasons], ["/replays", tx.replays]] },
+    { title: tx.play, links: [["/leaderboard", tx.leaderboard], ["/tournaments", tx.tournaments], ["/tournaments/standings", tx.standings], ["/stats", tx.stats], ["/replays", tx.replays]] },
     { title: tx.community, links: [["/chat", tx.chat], ["/members", tx.members], ["/videos", tx.videos], ["/news", tx.news]] },
     { title: tx.resources, links: [["/guides", tx.guides], ["/downloads", tx.downloads], ["/join", tx.join], ["/about", tx.about], ["/contact", tx.contact]] },
   ] as const;

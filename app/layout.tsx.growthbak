@@ -10,7 +10,6 @@ import "./globals.css";
 import "./tactical.css";
 import { Analytics } from "@vercel/analytics/next";
 import PwaRegister from "@/components/PwaRegister";
-import SiteJsonLd from "@/components/SiteJsonLd";
 
 const oswald = Oswald({
   subsets: ["latin"],
@@ -42,7 +41,7 @@ const tajawal = Tajawal({
 const SITE_URL = "https://www.commander.host";
 const SITE_TITLE = "Commander | Generals Zero Hour Community";
 const SITE_DESCRIPTION =
-  "Generals Zero Hour ranked ladder, tournaments, replays, maps, mods and strategy guides — the Commander clan and community.";
+  "Replays, maps, mods, videos and tournaments for the Generals Zero Hour community.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -51,7 +50,6 @@ export const metadata: Metadata = {
     template: "%s | Commander",
   },
   description: SITE_DESCRIPTION,
-  keywords: ["Generals Zero Hour", "C&C Generals", "Command and Conquer Generals", "Zero Hour ranked", "Generals clan", "Zero Hour tournaments", "Zero Hour replays", "Zero Hour maps", "جنرالات الساعة الصفر"],
   // Each page is its own canonical URL (setting the homepage here told Google every page was a copy of it).
   alternates: {
     canonical: "./",
@@ -94,7 +92,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         style={{ background: C.void, color: C.paper, fontFamily: "var(--font-mono), monospace" }}
         suppressHydrationWarning
       >
-        <SiteJsonLd />
         <LanguageProvider>
           <FeedbackProvider>
             <TopBanner />

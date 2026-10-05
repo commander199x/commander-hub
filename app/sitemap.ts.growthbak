@@ -24,7 +24,6 @@ const PAGES: { path: string; priority: number; freq: MetadataRoute.Sitemap[numbe
   { path: "/about", priority: 0.5, freq: "monthly" },
   { path: "/contact", priority: 0.4, freq: "monthly" },
   { path: "/donate", priority: 0.4, freq: "monthly" },
-  { path: "/seasons", priority: 0.6, freq: "weekly" },
   { path: "/season-1", priority: 0.4, freq: "yearly" },
   { path: "/privacy", priority: 0.2, freq: "yearly" },
   { path: "/terms", priority: 0.2, freq: "yearly" },
