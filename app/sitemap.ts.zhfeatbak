@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
-import { GUIDES } from "@/lib/guides";
 
 const SITE_URL = "https://www.commander.host";
 export const revalidate = 3600; // rebuild at most once an hour
@@ -11,10 +10,6 @@ const PAGES: { path: string; priority: number; freq: MetadataRoute.Sitemap[numbe
   { path: "/tournaments", priority: 0.8, freq: "daily" },
   { path: "/tournaments/standings", priority: 0.7, freq: "daily" },
   { path: "/replays", priority: 0.8, freq: "daily" },
-  { path: "/stats/generals", priority: 0.8, freq: "daily" },
-  { path: "/stats/maps", priority: 0.7, freq: "daily" },
-  { path: "/stats/h2h", priority: 0.6, freq: "daily" },
-  { path: "/guides", priority: 0.8, freq: "weekly" },
   { path: "/videos", priority: 0.7, freq: "daily" },
   { path: "/downloads", priority: 0.8, freq: "weekly" },
   { path: "/news", priority: 0.7, freq: "weekly" },
@@ -37,10 +32,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: p.freq,
     priority: p.priority,
   }));
-
-  for (const g of GUIDES) {
-    entries.push({ url: `${SITE_URL}/guides/${g.slug}`, lastModified: new Date(g.updated), changeFrequency: "monthly", priority: 0.7 });
-  }
 
   // Every player profile, so searching a player's name can lead to their page
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -15,8 +15,8 @@ import "@/app/animations.css";
 
 // Arabic needs a native review.
 const TEXT = {
-  en: { stats: "Stats", chat: "Chat", members: "Members", leaderboard: "Leaderboard", profile: "My profile", edit: "Edit profile", owner: "Owner", menu: "Menu" },
-  ar: { stats: "الإحصائيات", chat: "الدردشة", members: "الأعضاء", leaderboard: "لوحة الصدارة", profile: "ملفي", edit: "تعديل الملف", owner: "المالك", menu: "القائمة" },
+  en: { chat: "Chat", members: "Members", leaderboard: "Leaderboard", profile: "My profile", edit: "Edit profile", owner: "Owner", menu: "Menu" },
+  ar: { chat: "الدردشة", members: "الأعضاء", leaderboard: "لوحة الصدارة", profile: "ملفي", edit: "تعديل الملف", owner: "المالك", menu: "القائمة" },
 };
 
 const CSS = `
@@ -179,7 +179,6 @@ export default function Header() {
     { label: t("nav.home"), href: "/" },
     { label: tx.leaderboard, href: "/leaderboard" },
     { label: t("nav.tournaments"), href: "/tournaments" },
-    { label: tx.stats, href: "/stats" },
     { label: t("nav.replays"), href: "/replays" },
     { label: t("nav.videos"), href: "/videos" },
     { label: t("nav.downloads"), href: "/downloads" },
@@ -241,8 +240,8 @@ export default function Header() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden flex-1 items-center justify-end gap-6 xl:flex" aria-label="Main">
-          <div ref={navRef} className="relative flex items-center gap-5 2xl:gap-7">
+        <nav className="hidden flex-1 items-center justify-end gap-6 lg:flex" aria-label="Main">
+          <div ref={navRef} className="relative flex items-center gap-5 xl:gap-7">
             {NAV.map((item) => {
               const active = isActive(item.href);
               return (
@@ -274,9 +273,9 @@ export default function Header() {
 
         {/* Right side: ONE notification bell for all screen sizes (it opens a realtime channel,
             so it must never be rendered twice), then account + Join on desktop */}
-        <div className="ms-auto flex shrink-0 items-center gap-3 xl:ms-0">
+        <div className="ms-auto flex shrink-0 items-center gap-3 lg:ms-0">
           {!authLoading && username && <NotificationBell />}
-          <div className="hidden items-center gap-3 xl:flex">
+          <div className="hidden items-center gap-3 lg:flex">
           {!authLoading &&
             (username ? (
               <>
@@ -341,7 +340,7 @@ export default function Header() {
         </div>
 
         {/* Mobile controls */}
-        <div className="flex items-center gap-2 xl:hidden">
+        <div className="flex items-center gap-2 lg:hidden">
           <LanguageSwitcher />
           <button
             onClick={() => setOpen((v) => !v)}
@@ -365,7 +364,7 @@ export default function Header() {
       {/* Mobile menu: full screen. Rendered on <body> through a portal, because the header's
           blur (backdrop-filter) would otherwise trap a fixed overlay inside the header's own box. */}
       {open && typeof document !== "undefined" && createPortal(
-        <div className="czh2-overlay fixed inset-x-0 bottom-0 z-[45] overflow-y-auto xl:hidden" style={{ top: "var(--cz-header-h, 64px)", background: "rgba(10,12,8,0.98)" }}>
+        <div className="czh2-overlay fixed inset-x-0 bottom-0 z-[45] overflow-y-auto lg:hidden" style={{ top: "var(--cz-header-h, 64px)", background: "rgba(10,12,8,0.98)" }}>
           <nav className="flex flex-col px-6 pb-10 pt-4" aria-label={tx.menu}>
             {NAV.map((item, i) => {
               const active = isActive(item.href);
