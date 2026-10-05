@@ -36,8 +36,7 @@ const tajawal = Tajawal({
   variable: "--font-mono-ar",
 });
 
-// The live site redirects commander.host → www.commander.host, so links and previews use the final address.
-const SITE_URL = "https://www.commander.host";
+const SITE_URL = "https://commander.host";
 const SITE_TITLE = "Commander | Generals Zero Hour Community";
 const SITE_DESCRIPTION =
   "Replays, maps, mods, videos and tournaments for the Generals Zero Hour community.";
@@ -49,9 +48,8 @@ export const metadata: Metadata = {
     template: "%s | Commander",
   },
   description: SITE_DESCRIPTION,
-  // Each page is its own canonical URL (setting the homepage here told Google every page was a copy of it).
   alternates: {
-    canonical: "./",
+    canonical: SITE_URL,
   },
   openGraph: {
     title: SITE_TITLE,

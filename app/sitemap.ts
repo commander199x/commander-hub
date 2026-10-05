@@ -1,0 +1,62 @@
+import type { MetadataRoute } from "next";
+import { createClient } from "@supabase/supabase-js";
+
+const SITE_URL = "https://www.commander.host";
+export const revalidate = 3600; // rebuild at most once an hour
+
+const PAGES: { path: string; priority: number; freq: MetadataRoute.Sitemap[number]["changeFrequency"] }[] = [
+  { path: "", priority: 1, freq: "daily" },
+  { path: "/leaderboard", priority: 0.9, freq: "hourly" },
+  { path: "/tournaments", priority: 0.8, freq: "daily" },
+  { path: "/tournaments/standings", priority: 0.7, freq: "daily" },
+  { path: "/replays", priority: 0.8, freq: "daily" },
+  { path: "/videos", priority: 0.7, freq: "daily" },
+  { path: "/downloads", priority: 0.8, freq: "weekly" },
+  { path: "/news", priority: 0.7, freq: "weekly" },
+  { path: "/members", priority: 0.6, freq: "daily" },
+  { path: "/chat", priority: 0.5, freq: "daily" },
+  { path: "/join", priority: 0.6, freq: "monthly" },
+  { path: "/about", priority: 0.5, freq: "monthly" },
+  { path: "/contact", priority: 0.4, freq: "monthly" },
+  { path: "/donate", priority: 0.4, freq: "monthly" },
+  { path: "/season-1", priority: 0.4, freq: "yearly" },
+  { path: "/privacy", priority: 0.2, freq: "yearly" },
+  { path: "/terms", priority: 0.2, freq: "yearly" },
+];
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const now = new Date();
+  const entries: MetadataRoute.Sitemap = PAGES.map((p) => ({
+    url: `${SITE_URL}${p.path}`,
+    lastModified: now,
+    changeFrequency: p.freq,
+    priority: p.priority,
+  }));
+
+  // Every player profile, so searching a player's name can lead to their page
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (url && key) {
+    try {
+      const db = createClient(url, key, { auth: { persistSession: false } });
+      for (let from = 0; from < 50_000; from += 1000) {
+        const { data, error } = await db.from("profiles").select("username, created_at, banned").range(from, from + 999);
+        if (error) break;
+        const rows = (data ?? []) as { username: string | null; created_at: string | null; banned: boolean | null }[];
+        for (const r of rows) {
+          if (!r.username || r.banned) continue;
+          entries.push({
+            url: `${SITE_URL}/profile/${encodeURIComponent(r.username)}`,
+            lastModified: r.created_at ? new Date(r.created_at) : now,
+            changeFrequency: "weekly",
+            priority: 0.5,
+          });
+        }
+        if (rows.length < 1000) break;
+      }
+    } catch {
+      // The static pages are still listed if the database can't be reached.
+    }
+  }
+  return entries;
+}

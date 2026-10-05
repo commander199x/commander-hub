@@ -1,0 +1,51 @@
+# Weekly encrypted backup of the Commander database (all game data in the "public" schema).
+#
+# One-time setup — GitHub repo → Settings → Secrets and variables → Actions → New repository secret:
+#   SUPABASE_DB_URL     Supabase → Connect → "Session pooler" connection string (IPv4), with your DB password filled in
+#   BACKUP_PASSPHRASE   a long password you make up and keep safe (needed to open the backups)
+#
+# Backups appear under GitHub → Actions → "Database backup" → a run → Artifacts (kept 90 days).
+# Run one any time with the "Run workflow" button.
+#
+# To open a backup:   gpg --decrypt commander-YYYY-MM-DD.dump.gpg > backup.dump
+# To restore it:      pg_restore --clean --if-exists --no-owner --no-privileges -d "<connection string>" backup.dump
+# (Avatars and replay FILES live in Supabase Storage and are not part of this database backup.)
+
+name: Database backup
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # every Monday 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    container: postgres:17
+    steps:
+      - name: Install gpg
+        run: apt-get update -qq && apt-get install -y -qq gnupg > /dev/null
+
+      - name: Dump and encrypt
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -eu
+          [ -n "${SUPABASE_DB_URL:-}" ] || { echo "::error::Add the SUPABASE_DB_URL secret"; exit 1; }
+          [ -n "${BACKUP_PASSPHRASE:-}" ] || { echo "::error::Add the BACKUP_PASSPHRASE secret"; exit 1; }
+          STAMP=$(date -u +%Y-%m-%d)
+          pg_dump "$SUPABASE_DB_URL" --schema=public --no-owner --no-privileges --format=custom --file=backup.dump
+          echo "Dump size: $(du -h backup.dump | cut -f1)"
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+              --symmetric --cipher-algo AES256 -o "commander-$STAMP.dump.gpg" backup.dump
+          rm backup.dump
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+
+      - name: Upload backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: commander-db-${{ env.STAMP }}
+          path: commander-*.dump.gpg
+          retention-days: 90
+          if-no-files-found: error
