@@ -4,20 +4,19 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LogIn, ChevronDown, UserRound, Pencil, LogOut, ArrowUpRight, ClipboardCheck } from "lucide-react";
+import { Menu, X, LogIn, ChevronDown, UserRound, Pencil, LogOut, ArrowUpRight } from "lucide-react";
 import { C, DISCORD_URL } from "@/lib/theme";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { createClient } from "@/lib/supabase/client";
 import NotificationBell from "@/components/NotificationBell";
-import LiveBadge from "@/components/live/LiveBadge";
 import "@/app/notifications.css";
 import "@/app/animations.css";
 
 // Arabic needs a native review.
 const TEXT = {
-  en: { stats: "Stats", chat: "Chat", members: "Members", leaderboard: "Leaderboard", profile: "My profile", report: "Report a result", edit: "Edit profile", owner: "Owner", menu: "Menu" },
-  ar: { stats: "الإحصائيات", chat: "الدردشة", members: "الأعضاء", leaderboard: "لوحة الصدارة", profile: "ملفي", report: "الإبلاغ عن نتيجة", edit: "تعديل الملف", owner: "المالك", menu: "القائمة" },
+  en: { stats: "Stats", chat: "Chat", members: "Members", leaderboard: "Leaderboard", profile: "My profile", edit: "Edit profile", owner: "Owner", menu: "Menu" },
+  ar: { stats: "الإحصائيات", chat: "الدردشة", members: "الأعضاء", leaderboard: "لوحة الصدارة", profile: "ملفي", edit: "تعديل الملف", owner: "المالك", menu: "القائمة" },
 };
 
 const CSS = `
@@ -278,7 +277,6 @@ export default function Header() {
         <div className="ms-auto flex shrink-0 items-center gap-3 xl:ms-0">
           {!authLoading && username && <NotificationBell />}
           <div className="hidden items-center gap-3 xl:flex">
-              <LiveBadge />
           {!authLoading &&
             (username ? (
               <>
@@ -304,10 +302,6 @@ export default function Header() {
                       <Link role="menuitem" href={`/profile/${username}`} className="flex min-h-[42px] items-center gap-3 px-4 text-sm hover:bg-[#171B10]" style={{ color: C.paper }}>
                         <UserRound size={15} style={{ color: C.amber }} aria-hidden="true" />
                         {tx.profile}
-                      </Link>
-                      <Link role="menuitem" href="/report" className="flex min-h-[42px] items-center gap-3 px-4 text-sm hover:bg-[#171B10]" style={{ color: C.paper }}>
-                        <ClipboardCheck size={15} style={{ color: C.amber }} aria-hidden="true" />
-                        {tx.report}
                       </Link>
                       <Link role="menuitem" href="/profile/edit" className="flex min-h-[42px] items-center gap-3 px-4 text-sm hover:bg-[#171B10]" style={{ color: C.paper }}>
                         <Pencil size={15} style={{ color: C.amber }} aria-hidden="true" />
@@ -348,7 +342,6 @@ export default function Header() {
 
         {/* Mobile controls */}
         <div className="flex items-center gap-2 xl:hidden">
-              <LiveBadge />
           <LanguageSwitcher />
           <button
             onClick={() => setOpen((v) => !v)}
@@ -402,10 +395,6 @@ export default function Header() {
                         {tx.owner}
                       </span>
                     )}
-                  </Link>
-                  <Link href="/report" onClick={() => setOpen(false)} className="flex min-h-[48px] items-center justify-center gap-2 border text-xs uppercase tracking-widest" style={{ borderColor: C.amberDim, color: C.amber }}>
-                    <ClipboardCheck size={14} aria-hidden="true" />
-                    {tx.report}
                   </Link>
                   <div className="grid grid-cols-2 gap-1">
                     <Link href="/profile/edit" onClick={() => setOpen(false)} className="flex min-h-[48px] items-center justify-center gap-2 border text-xs uppercase tracking-widest" style={{ borderColor: C.line, color: C.paper }}>

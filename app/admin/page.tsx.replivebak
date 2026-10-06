@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ShieldCheck, Swords, ListChecks, Calculator, Users, UserCog, AlertTriangle, LayoutDashboard, Trash2, ScrollText,
-  Search, Ban, Undo2, MessageSquareX, Minus, Plus, ArrowUpRight, Crown, Star, Crosshair, Inbox, Radio,
+  Search, Ban, Undo2, MessageSquareX, Minus, Plus, ArrowUpRight, Crown, Star, Crosshair,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import MatchForm from "@/components/MatchForm";
@@ -15,8 +15,6 @@ import ResetSeasonRatings from "@/components/ResetSeasonRatings";
 import MergeGuestIntoAccount from "@/components/MergeGuestIntoAccount";
 import MergeDuplicateAccounts from "@/components/MergeDuplicateAccounts";
 import GeneralsTagger from "@/components/admin/GeneralsTagger";
-import SubmissionsQueue from "@/components/admin/SubmissionsQueue";
-import LiveControl from "@/components/admin/LiveControl";
 import TankSpinner from "@/components/TankSpinner";
 import { logAdminAction } from "@/lib/auditLog";
 import { useFeedback } from "@/components/FeedbackProvider";
@@ -43,9 +41,7 @@ const DANGER = "#DC2626";
 const PAGE_STEP = 40;
 
 const SECTIONS = [
-  { id: "live", label: "Live stream", icon: Radio },
   { id: "log", label: "Log a match", icon: Swords },
-  { id: "reports", label: "Reported results", icon: Inbox },
   { id: "matches", label: "Recent matches", icon: ListChecks },
   { id: "generals", label: "Generals", icon: Crosshair },
   { id: "ratings", label: "Ratings", icon: Calculator },
@@ -403,16 +399,8 @@ export default function AdminPage() {
 
         {/* ================= CONTENT ================= */}
         <div ref={mainRef} className="flex min-w-0 flex-col gap-6">
-          <Section id="live" icon={Radio} title="Live stream" desc="Going live on TikTok? Flip this on: the header shows a LIVE badge and /live sends viewers to the stream.">
-            <LiveControl adminUsername={adminUsername} />
-          </Section>
-
-          <Section id="log" icon={Swords} title="Log a match" desc="Record a result. Ratings update automatically. Pick each player's general to feed the Meta page.">
+          <Section id="log" icon={Swords} title="Log a match" desc="Record a result. Ratings update automatically.">
             <div className="czam-host admin-panel"><MatchForm allUsers={users.map((u) => ({ username: u.username }))} /></div>
-          </Section>
-
-          <Section id="reports" icon={Inbox} title="Reported results" desc="Results reported by players. Approve to log them with the normal rating maths." delay={0.03}>
-            <SubmissionsQueue adminUsername={adminUsername} />
           </Section>
 
           <Section id="matches" icon={ListChecks} title="Recent matches" desc="Edit, delete or restore recent results." delay={0.05}>
