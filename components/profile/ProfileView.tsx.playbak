@@ -10,7 +10,6 @@ import { createClient } from "@/lib/supabase/client";
 import { C } from "@/lib/theme";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import GeneralsPanel from "@/components/profile/GeneralsPanel";
-import ChallengeButton from "@/components/play/ChallengeButton";
 
 export type ProfileData = {
   id: string;
@@ -817,7 +816,6 @@ export default function ProfileView({ profile, isOwnProfile }: { profile: Profil
                   {tx.edit}
                 </Link>
               )}
-              {!isOwnProfile && <ChallengeButton username={profile.username} />}
             </div>
           </div>
         </div>

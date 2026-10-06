@@ -4,21 +4,20 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LogIn, ChevronDown, UserRound, Pencil, LogOut, ArrowUpRight, ClipboardCheck, Crosshair } from "lucide-react";
+import { Menu, X, LogIn, ChevronDown, UserRound, Pencil, LogOut, ArrowUpRight, ClipboardCheck } from "lucide-react";
 import { C, DISCORD_URL } from "@/lib/theme";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { createClient } from "@/lib/supabase/client";
 import NotificationBell from "@/components/NotificationBell";
 import LiveBadge from "@/components/live/LiveBadge";
-import SitePresence from "@/components/play/SitePresence";
 import "@/app/notifications.css";
 import "@/app/animations.css";
 
 // Arabic needs a native review.
 const TEXT = {
-  en: { stats: "Stats", chat: "Chat", members: "Members", leaderboard: "Leaderboard", profile: "My profile", play: "Find a game", report: "Report a result", edit: "Edit profile", owner: "Owner", menu: "Menu" },
-  ar: { stats: "الإحصائيات", chat: "الدردشة", members: "الأعضاء", leaderboard: "لوحة الصدارة", profile: "ملفي", play: "ابحث عن مباراة", report: "الإبلاغ عن نتيجة", edit: "تعديل الملف", owner: "المالك", menu: "القائمة" },
+  en: { stats: "Stats", chat: "Chat", members: "Members", leaderboard: "Leaderboard", profile: "My profile", report: "Report a result", edit: "Edit profile", owner: "Owner", menu: "Menu" },
+  ar: { stats: "الإحصائيات", chat: "الدردشة", members: "الأعضاء", leaderboard: "لوحة الصدارة", profile: "ملفي", report: "الإبلاغ عن نتيجة", edit: "تعديل الملف", owner: "المالك", menu: "القائمة" },
 };
 
 const CSS = `
@@ -228,7 +227,6 @@ export default function Header() {
         boxShadow: scrolled ? "0 10px 30px rgba(0,0,0,0.35)" : "none",
       }}
     >
-      <SitePresence />
       <style>{CSS}</style>
 
       <div className={`flex items-center justify-between gap-6 px-6 transition-[padding] duration-300 md:px-10 ${scrolled ? "py-2.5" : "py-4"}`}>
@@ -281,10 +279,6 @@ export default function Header() {
           {!authLoading && username && <NotificationBell />}
           <div className="hidden items-center gap-3 xl:flex">
               <LiveBadge />
-              <Link href="/play" aria-label={tx.play} title={tx.play} className="inline-flex h-11 shrink-0 items-center gap-2 border px-3 text-[11px] uppercase tracking-[0.16em] transition-colors hover:bg-[#171B10]" style={{ borderColor: pathname?.startsWith("/play") ? C.amber : C.amberDim, color: C.amber, fontWeight: 700 }}>
-                <Crosshair size={16} aria-hidden="true" />
-                <span className="hidden 2xl:inline">{tx.play}</span>
-              </Link>
           {!authLoading &&
             (username ? (
               <>
@@ -355,9 +349,6 @@ export default function Header() {
         {/* Mobile controls */}
         <div className="flex items-center gap-2 xl:hidden">
               <LiveBadge />
-              <Link href="/play" aria-label={tx.play} title={tx.play} className="inline-flex h-11 w-11 shrink-0 items-center justify-center border text-[11px] uppercase tracking-[0.16em] transition-colors hover:bg-[#171B10]" style={{ borderColor: pathname?.startsWith("/play") ? C.amber : C.amberDim, color: C.amber, fontWeight: 700 }}>
-                <Crosshair size={16} aria-hidden="true" />
-              </Link>
           <LanguageSwitcher />
           <button
             onClick={() => setOpen((v) => !v)}

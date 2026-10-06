@@ -1,7 +1,7 @@
 /* Commander service worker — makes the site installable and shows a branded page when offline.
    It never touches Supabase, YouTube or other sites, and never caches pages or API answers,
    so players always see live data when they're online. */
-const VERSION = "cz-v2";
+const VERSION = "cz-v1";
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png"];
 
@@ -42,33 +42,4 @@ self.addEventListener("fetch", (event) => {
       })
     );
   }
-});
-
-// Phone notifications: the server sends an empty "ping"; show a notification that opens Find a game.
-self.addEventListener("push", (event) => {
-  let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch (e) {}
-  event.waitUntil(
-    self.registration.showNotification(data.title || "Commander", {
-      body: data.body || "New challenge activity — tap to open",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      tag: "commander-play",
-      renotify: true,
-      data: { url: data.url || "/play" },
-    })
-  );
-});
-
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/play";
-  event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-      for (const c of list) {
-        if ("focus" in c && new URL(c.url).origin === self.location.origin) { c.navigate(url); return c.focus(); }
-      }
-      return self.clients.openWindow(url);
-    })
-  );
 });
