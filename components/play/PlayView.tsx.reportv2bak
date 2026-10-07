@@ -553,7 +553,7 @@ export default function PlayView() {
                     <li key={c.id} className="flex flex-wrap items-center gap-3 border px-4 py-2.5 text-sm" style={{ borderColor: C.line, background: "#0A0C08" }}>
                       <Check size={15} style={{ color: C.radar }} aria-hidden="true" />
                       <span className="flex-1">{c.from_username} · {c.mode.toUpperCase()} · <span style={{ color: C.radar }}>{tx.accepted}</span></span>
-                      <Link href={`/report?challenge=${c.id}`} className="text-xs uppercase tracking-widest" style={{ color: C.amber }}>{tx.report}</Link>
+                      <Link href="/report" className="text-xs uppercase tracking-widest" style={{ color: C.amber }}>{tx.report}</Link>
                     </li>
                   ))}
                 </ul>
@@ -636,7 +636,7 @@ export default function PlayView() {
                         <span className="w-full min-w-0 truncate"><b>{c.to_username}</b> <span style={{ color: C.muted, ...mono }}>· {c.mode.toUpperCase()} · {ago(c.created_at)}</span></span>
                         <span className="me-auto text-[10px] uppercase tracking-widest" style={{ color, fontWeight: 700, ...mono }}>{expired ? tx.expired : tx.st[c.status]}</span>
                         {c.status === "pending" && !expired && <button onClick={() => cancel(c)} disabled={busy === c.id} className="text-[11px] uppercase tracking-widest underline-offset-2 hover:underline" style={{ color: C.muted }}>{tx.cancel}</button>}
-                        {c.status === "accepted" && <Link href={`/report?challenge=${c.id}`} className="text-[11px] uppercase tracking-widest" style={{ color: C.amber }}>{tx.report}</Link>}
+                        {c.status === "accepted" && <Link href="/report" className="text-[11px] uppercase tracking-widest" style={{ color: C.amber }}>{tx.report}</Link>}
                       </li>
                     );
                   })}
