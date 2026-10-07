@@ -19,7 +19,6 @@ type Sub = {
   id: string; created_at: string; submitter_username: string; mode: Mode; participants: string[]; winners: string[];
   map: string | null; notes: string | null; replay_url: string | null; generals: unknown; match_date: string;
   status: "pending" | "confirmed" | "disputed" | "approved" | "rejected"; confirmed_by: string | null; dispute_reason: string | null;
-  challenge_id?: string | null;
 };
 type Person = { username: string; avatar: string | null; rating: number };
 type QuickFill = { key: string; kind: "challenge" | "rematch"; label: string; sub: string; mode: Mode; mine: string[]; opps: string[]; ffa: string[] };
@@ -226,9 +225,7 @@ export default function ReportView() {
     const q: QuickFill[] = [];
     const since = new Date(Date.now() - 7 * 86400000).toISOString();
     const { data: ch } = await supabase.from("challenges").select("id, from_user, from_username, to_username, mode, status, responded_at").eq("status", "accepted").gte("responded_at", since).order("responded_at", { ascending: false }).limit(5);
-    const reported = new Set(mineSubs.filter((s) => s.challenge_id && s.status !== "rejected").map((s) => s.challenge_id as string));
     for (const c of (ch ?? []) as { id: string; from_user: string; from_username: string; to_username: string; mode: string; responded_at: string }[]) {
-      if (reported.has(c.id)) continue;
       const other = c.from_user === userId ? c.to_username : c.from_username;
       const m: Mode = c.mode === "1v1" ? "ffa" : (c.mode as Mode);
       q.push({ key: `c:${c.id}`, kind: "challenge", label: `${tx.vs} ${other}`, sub: c.mode.toUpperCase(), mode: m, mine: [], opps: m === "ffa" ? [] : [other], ffa: m === "ffa" ? [other] : [] });
@@ -321,15 +318,10 @@ export default function ReportView() {
     const g: Record<string, string> = {};
     for (const p of participants) if (generals[p]) g[p] = generals[p] as string;
     setSending(true);
-    const row = {
+    const { error } = await supabase.from("match_submissions").insert({
       submitter_username: me.username, mode, participants, winners,
       map: map.trim() || null, notes: notes.trim() || null, replay_url: replay.trim() || null, generals: g, match_date: date,
-    };
-    const challengeId = filled?.startsWith("c:") ? filled.slice(2) : null;
-    const payload: Record<string, unknown> = challengeId ? { ...row, challenge_id: challengeId } : row;
-    let { error } = await supabase.from("match_submissions").insert(payload);
-    // before sql/match-lifecycle.sql has been run there is no challenge link yet: send without it
-    if (error && challengeId && /challenge_id/i.test(error.message)) ({ error } = await supabase.from("match_submissions").insert(row));
+    });
     setSending(false);
     if (error) return fb.error(error.message);
     fb.success(tx.sent);
@@ -431,7 +423,6 @@ export default function ReportView() {
           <span>{fmt(s.match_date)}</span>
           {s.map && <span className="inline-flex items-center gap-1"><MapIcon size={11} aria-hidden="true" />{s.map}</span>}
           <span>{tx.reportedBy} <b style={{ color: C.paper }}>{s.submitter_username}</b></span>
-          {s.challenge_id && <span className="inline-flex items-center gap-1" style={{ color: LOSS }}><Swords size={11} aria-hidden="true" />{tx.fromChallenge}</span>}
           <span className="ms-auto flex items-center gap-3">{steps(s)}<span className="inline-flex items-center gap-1.5" style={{ color: st.color, fontWeight: 700 }}><st.icon size={13} aria-hidden="true" />{tx.st[s.status]}</span></span>
         </div>
         <div className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">

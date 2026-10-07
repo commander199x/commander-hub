@@ -8,7 +8,7 @@ export const PLAY_MODES: PlayMode[] = ["1v1", "2v2", "3v3", "4v4", "ffa"];
 
 export type Challenge = {
   id: string; created_at: string; from_user: string; from_username: string; to_user: string; to_username: string;
-  mode: PlayMode; message: string | null; status: "pending" | "accepted" | "declined" | "cancelled" | "completed"; responded_at: string | null; expires_at: string;
+  mode: PlayMode; message: string | null; status: "pending" | "accepted" | "declined" | "cancelled"; responded_at: string | null; expires_at: string;
 };
 export type ReadyPlayer = { user_id: string; username: string; modes: PlayMode[]; note: string | null; until: string; updated_at: string };
 

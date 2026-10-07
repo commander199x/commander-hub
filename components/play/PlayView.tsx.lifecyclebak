@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Crosshair, Radio, UserCheck, Check, X, Clock, BellRing, BellOff, Search, LogIn, Info, Loader2, Shield, Signal, Star, ArrowUpRight, Send, Satellite, Flag, Trophy, ClipboardCheck } from "lucide-react";
+import { Crosshair, Radio, UserCheck, Check, X, Clock, BellRing, BellOff, Search, LogIn, Info, Loader2, Shield, Signal, Star, ArrowUpRight, Send, Satellite } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { C } from "@/lib/theme";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -40,11 +40,7 @@ const TEXT = {
     deployedFor: (m: number) => `Deployed — ${m} min left on the ready list`,
     transmissions: "Incoming transmissions", noTransmissions: "No orders waiting. The field is quiet.", accept: "Accept", decline: "Decline", report: "Report the result", accepted: "Accepted",
     units: "Ready units", noUnits: "Nobody deployed yet. Be the first.",
-    dispatched: "Dispatched orders", cancel: "Cancel", st: { pending: "Awaiting reply", accepted: "Accepted — go play!", declined: "Declined", cancelled: "Cancelled", completed: "Completed" }, expired: "Expired",
-    vsWord: "vs", ops: "Active operations", opsSub: "Your accepted matches, from challenge to the ladder.",
-    life: ["Challenged", "Accepted", "Reported", "Confirmed", "On the ladder"],
-    ended: "Match ended — report result", waitingFor: (n: string) => `Waiting for ${n} to confirm`, confirmIt: "Confirm the result", waitingAdmin: "Waiting for an admin",
-    disputedNote: "Disputed — an admin will decide", rejectedNote: "Report rejected — report again", wonBy: (w: string) => `${w} won`,
+    dispatched: "Dispatched orders", cancel: "Cancel", st: { pending: "Awaiting reply", accepted: "Accepted — go play!", declined: "Declined", cancelled: "Cancelled" }, expired: "Expired",
     manual: "Manual targeting", manualPh: "Type a commander's name",
     radio: "Field radio", radioOn: "On — challenges ping this device", radioOff: "Get pinged on this phone or computer when someone challenges you.", turnOn: "Turn on", turnOff: "Turn off",
     radioNoSupport: "Not available in this browser. On iPhone: install the app to your home screen first (Share → Add to Home Screen), then open it from there.",
@@ -65,11 +61,7 @@ const TEXT = {
     deployedFor: (m: number) => `منتشر — باقي ${m} دقيقة في قائمة الجاهزين`,
     transmissions: "إرسالات واردة", noTransmissions: "لا أوامر بانتظارك. الميدان هادئ.", accept: "قبول", decline: "رفض", report: "أبلغ عن النتيجة", accepted: "مقبول",
     units: "وحدات جاهزة", noUnits: "لم ينتشر أحد بعد. كن الأول.",
-    dispatched: "أوامر مُرسلة", cancel: "إلغاء", st: { pending: "بانتظار الرد", accepted: "مقبول — العبوا!", declined: "مرفوض", cancelled: "ملغى", completed: "مكتملة" }, expired: "منتهي",
-    vsWord: "ضد", ops: "عمليات جارية", opsSub: "مبارياتك المقبولة، من التحدي حتى التصنيف.",
-    life: ["تحدٍّ", "قبول", "بلاغ", "تأكيد", "في التصنيف"],
-    ended: "انتهت المباراة — أبلغ عن النتيجة", waitingFor: (n: string) => `بانتظار تأكيد ${n}`, confirmIt: "أكّد النتيجة", waitingAdmin: "بانتظار المشرف",
-    disputedNote: "معترض عليها — سيقرر المشرف", rejectedNote: "رُفض البلاغ — أبلغ مجدداً", wonBy: (w: string) => `فاز ${w}`,
+    dispatched: "أوامر مُرسلة", cancel: "إلغاء", st: { pending: "بانتظار الرد", accepted: "مقبول — العبوا!", declined: "مرفوض", cancelled: "ملغى" }, expired: "منتهي",
     manual: "استهداف يدوي", manualPh: "اكتب اسم قائد",
     radio: "اللاسلكي الميداني", radioOn: "مفعّل — ستصلك التحديات على هذا الجهاز", radioOff: "استلم تنبيهاً على هذا الهاتف أو الكمبيوتر عندما يتحداك أحد.", turnOn: "تفعيل", turnOff: "إيقاف",
     radioNoSupport: "غير متاحة في هذا المتصفح. على الآيفون: ثبّت التطبيق على الشاشة الرئيسية أولاً ثم افتحه من هناك.",
@@ -168,7 +160,6 @@ export default function PlayView() {
   const [find, setFind] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const [target, setTarget] = useState<string | null>(null);
-  const [linked, setLinked] = useState<Record<string, { status: string; winners: string[]; submitter: string }>>({});
 
   const load = useCallback(async () => {
     const [r, c] = await Promise.all([
@@ -177,18 +168,7 @@ export default function PlayView() {
     ]);
     if (r.error) return setWorks(false);
     setReady((r.data ?? []) as ReadyPlayer[]);
-    const list = (c.data ?? []) as Challenge[];
-    setChallenges(list);
-    // reports linked to accepted/completed challenges (needs sql/match-lifecycle.sql; ignored if not run yet)
-    const ids = list.filter((x) => x.status === "accepted" || x.status === "completed").map((x) => x.id);
-    if (ids.length) {
-      const { data: subs, error } = await supabase.from("match_submissions").select("challenge_id, status, winners, submitter_username, created_at").in("challenge_id", ids).order("created_at", { ascending: true });
-      if (!error) {
-        const m: Record<string, { status: string; winners: string[]; submitter: string }> = {};
-        for (const s of (subs ?? []) as { challenge_id: string; status: string; winners: string[]; submitter_username: string }[]) m[s.challenge_id] = { status: s.status, winners: s.winners, submitter: s.submitter_username };
-        setLinked(m);
-      }
-    }
+    setChallenges((c.data ?? []) as Challenge[]);
   }, [supabase]);
 
   useEffect(() => {
@@ -218,12 +198,8 @@ export default function PlayView() {
 
   const mine = me ? ready.find((r) => r.user_id === me.id) : undefined;
   const incoming = me ? challenges.filter((c) => c.to_user === me.id && c.status === "pending" && Date.parse(c.expires_at) > now) : [];
-  const outgoing = me ? challenges.filter((c) => c.from_user === me.id && c.status !== "accepted" && c.status !== "completed").slice(0, 8) : [];
-  const ops = me
-    ? challenges
-        .filter((c) => (c.from_user === me.id || c.to_user === me.id) && (c.status === "accepted" || (c.status === "completed" && now - Date.parse(c.responded_at ?? c.created_at) < 3 * 86400000)))
-        .slice(0, 6)
-    : [];
+  const recentAccepted = me ? challenges.filter((c) => c.to_user === me.id && c.status === "accepted").slice(0, 3) : [];
+  const outgoing = me ? challenges.filter((c) => c.from_user === me.id).slice(0, 8) : [];
   const names = Object.keys(people);
 
   // contacts on the radar: everyone online or ready, except you
@@ -548,71 +524,11 @@ export default function PlayView() {
           </div>
         </div>
 
-        {/* ===== active operations: challenge → report → ladder ===== */}
-        {me && ops.length > 0 && (
-          <div className="mt-6">
-            <Panel code="OP" icon={Flag} title={tx.ops} accent={C.amber} delay={0.32}>
-              <p className="-mt-1 mb-4 text-xs" style={{ color: C.muted }}>{tx.opsSub}</p>
-              <ul className="flex flex-col gap-3">
-                {ops.map((c) => {
-                  const opp = c.from_user === me.id ? c.to_username : c.from_username;
-                  const rep = linked[c.id];
-                  const st = c.status === "completed" ? "approved" : rep?.status;
-                  const level = st === "approved" ? 5 : st === "confirmed" ? 4 : st === "pending" || st === "disputed" ? 3 : 2;
-                  const bad = st === "disputed" || st === "rejected";
-                  const iReported = rep?.submitter === me.username;
-                  return (
-                    <li key={c.id} className="czw-in relative border p-4" style={{ borderColor: level === 5 ? "rgba(143,191,79,0.5)" : C.line, background: level === 5 ? "linear-gradient(120deg, rgba(143,191,79,0.08), #0A0C08 60%)" : "#0A0C08" }}>
-                      <div className="flex flex-wrap items-center gap-4">
-                        {avatar(opp, 42, level === 5 ? C.radar : C.amber)}
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[10px] uppercase tracking-[0.22em]" style={{ color: C.muted, ...mono }}>{c.mode.toUpperCase()} · {ago(c.responded_at ?? c.created_at)}</div>
-                          <div className="text-base" style={{ fontWeight: 700 }}>{tx.vsWord} {opp}</div>
-                        </div>
-                        <div className="w-full sm:w-auto">
-                          {level === 2 || st === "rejected" ? (
-                            <Link href={`/report?challenge=${c.id}`} className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 px-5 text-xs uppercase tracking-[0.14em] sm:w-auto" style={{ background: C.amber, color: C.void, fontWeight: 800, boxShadow: "0 0 22px rgba(232,166,61,0.3)" }}>
-                              <ClipboardCheck size={15} aria-hidden="true" />{tx.ended}
-                            </Link>
-                          ) : st === "pending" && !iReported ? (
-                            <Link href="/report" className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 px-5 text-xs uppercase tracking-[0.14em] sm:w-auto" style={{ background: C.radar, color: C.void, fontWeight: 800 }}>
-                              <Check size={15} aria-hidden="true" />{tx.confirmIt}
-                            </Link>
-                          ) : (
-                            <span className="inline-flex items-center gap-2 text-sm" style={{ color: level === 5 ? C.radar : bad ? LOSS : C.amber, fontWeight: 700 }}>
-                              {level === 5 ? <Trophy size={16} aria-hidden="true" /> : bad ? <Flag size={15} aria-hidden="true" /> : <Clock size={15} aria-hidden="true" />}
-                              {level === 5 ? (rep?.winners?.length ? tx.wonBy(rep.winners.join(" + ")) : tx.st.completed) : st === "disputed" ? tx.disputedNote : st === "confirmed" ? tx.waitingAdmin : tx.waitingFor(opp)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {/* lifecycle stepper */}
-                      <ol className="mt-4 grid grid-cols-5 gap-1.5" dir="ltr" aria-label={tx.ops}>
-                        {tx.life.map((label, i) => {
-                          const done = i + 1 <= level;
-                          const here = i + 1 === level;
-                          const color = here && bad ? LOSS : done ? (level === 5 ? C.radar : C.amber) : C.line;
-                          return (
-                            <li key={label} className="min-w-0">
-                              <span className="block h-1.5" style={{ background: color, boxShadow: here && !bad && level < 5 ? `0 0 10px ${C.amber}` : "none" }} />
-                              <span className="mt-1.5 block truncate text-[10px] uppercase tracking-wider" style={{ color: done ? C.paper : C.muted, ...mono }}>{label}</span>
-                            </li>
-                          );
-                        })}
-                      </ol>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Panel>
-          </div>
-        )}
-
         {/* ===== transmissions + units ===== */}
         <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
           {me && (
             <Panel code="04" icon={Radio} title={tx.transmissions} accent={RED} delay={0.35} right={incoming.length ? <span className="px-2 py-0.5 text-xs text-white" style={{ background: RED, fontWeight: 800, ...mono }}>{incoming.length}</span> : null}>
-              {incoming.length === 0 ? (
+              {incoming.length === 0 && recentAccepted.length === 0 ? (
                 <p className="text-sm" style={{ color: C.muted }}>{tx.noTransmissions}</p>
               ) : (
                 <ul className="flex flex-col gap-3">
@@ -631,6 +547,13 @@ export default function PlayView() {
                           <button onClick={() => respond(c, true)} disabled={busy === c.id} className="inline-flex min-h-[42px] items-center gap-1.5 px-4 text-xs uppercase tracking-widest disabled:opacity-50" style={{ background: C.radar, color: C.void, fontWeight: 800 }}>{busy === c.id ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Check size={14} aria-hidden="true" />}{tx.accept}</button>
                         </div>
                       </div>
+                    </li>
+                  ))}
+                  {recentAccepted.map((c) => (
+                    <li key={c.id} className="flex flex-wrap items-center gap-3 border px-4 py-2.5 text-sm" style={{ borderColor: C.line, background: "#0A0C08" }}>
+                      <Check size={15} style={{ color: C.radar }} aria-hidden="true" />
+                      <span className="flex-1">{c.from_username} · {c.mode.toUpperCase()} · <span style={{ color: C.radar }}>{tx.accepted}</span></span>
+                      <Link href={`/report?challenge=${c.id}`} className="text-xs uppercase tracking-widest" style={{ color: C.amber }}>{tx.report}</Link>
                     </li>
                   ))}
                 </ul>
