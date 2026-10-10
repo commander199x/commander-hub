@@ -17,8 +17,6 @@ const TEXT = {
     standings: "Standings",
     stats: "Stats",
     seasons: "Seasons",
-    achievements: "Achievements",
-    events: "Events",
     guides: "Guides",
     replays: "Replays",
     chat: "Chat",
@@ -44,8 +42,6 @@ const TEXT = {
     standings: "الترتيب",
     stats: "الإحصائيات",
     seasons: "المواسم",
-    achievements: "الإنجازات",
-    events: "الفعاليات",
     guides: "الأدلة",
     replays: "الإعادات",
     chat: "الدردشة",
@@ -106,8 +102,8 @@ export default function Footer() {
   const tx = TEXT[lang];
 
   const columns = [
-    { title: tx.play, links: [["/leaderboard", tx.leaderboard], ["/tournaments", tx.tournaments], ["/tournaments/standings", tx.standings], ["/stats", tx.stats], ["/seasons", tx.seasons], ["/achievements", tx.achievements], ["/replays", tx.replays]] },
-    { title: tx.community, links: [["/events", tx.events], ["/chat", tx.chat], ["/members", tx.members], ["/videos", tx.videos], ["/news", tx.news]] },
+    { title: tx.play, links: [["/leaderboard", tx.leaderboard], ["/tournaments", tx.tournaments], ["/tournaments/standings", tx.standings], ["/stats", tx.stats], ["/seasons", tx.seasons], ["/replays", tx.replays]] },
+    { title: tx.community, links: [["/chat", tx.chat], ["/members", tx.members], ["/videos", tx.videos], ["/news", tx.news]] },
     { title: tx.resources, links: [["/guides", tx.guides], ["/downloads", tx.downloads], ["/join", tx.join], ["/about", tx.about], ["/contact", tx.contact]] },
   ] as const;
 

@@ -11,7 +11,6 @@ import { C } from "@/lib/theme";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import GeneralsPanel from "@/components/profile/GeneralsPanel";
 import ChallengeButton from "@/components/play/ChallengeButton";
-import AchievementsPanel from "@/components/profile/AchievementsPanel";
 
 export type ProfileData = {
   id: string;
@@ -1123,8 +1122,59 @@ export default function ProfileView({ profile, isOwnProfile }: { profile: Profil
             {/* ================= GENERALS (shows once generals are recorded) ================= */}
             <GeneralsPanel username={me} />
 
-            {/* ================= ACHIEVEMENTS (saved, with unlock dates and rarity) ================= */}
-            <AchievementsPanel username={me} />
+            {/* ================= MEDALS ================= */}
+            <Reveal className="mt-12">
+              <SectionTitle
+                icon={Medal}
+                right={
+                  <span className="text-sm tabular-nums" style={{ color: C.muted }}>
+                    {tx.unlocked(medalCount, MEDALS.length)}
+                  </span>
+                }
+              >
+                {tx.medals}
+              </SectionTitle>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                {MEDALS.map((md) => {
+                  const st = s.medal[md.id];
+                  const Icon = md.icon;
+                  const [name, desc] = md[lang];
+                  return (
+                    <div
+                      key={md.id}
+                      className={`czp-medal border p-4 ${st.ok ? "unlocked" : ""}`}
+                      style={{ background: st.ok ? "linear-gradient(160deg, rgba(232,166,61,0.10), #12150E 60%)" : C.panel, borderColor: st.ok ? C.amberDim : C.line }}
+                      title={desc}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-full"
+                          style={{ background: st.ok ? "rgba(232,166,61,0.15)" : "rgba(58,64,41,0.4)", color: st.ok ? C.amber : C.muted, border: `1px solid ${st.ok ? C.amberDim : C.line}` }}
+                        >
+                          {st.ok ? <Icon size={19} aria-hidden="true" /> : <Lock size={16} aria-hidden="true" />}
+                        </span>
+                        {!st.ok && st.need > 1 && (
+                          <span className="text-[11px] tabular-nums" style={{ color: C.muted }}>
+                            {Math.min(st.have, st.need)}/{st.need}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-3 text-sm" style={{ color: st.ok ? C.paper : C.muted, fontWeight: 600 }}>
+                        {name}
+                      </div>
+                      <div className="mt-1 text-xs leading-snug" style={{ color: C.muted }}>
+                        {desc}
+                      </div>
+                      {!st.ok && st.need > 1 && (
+                        <div className="mt-3 h-1 w-full" style={{ background: C.line }}>
+                          <div className="h-full" style={{ width: `${Math.min(1, st.have / st.need) * 100}%`, background: C.amberDim }} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Reveal>
 
             {/* ================= MATCH HISTORY ================= */}
             <Reveal className="mt-12">

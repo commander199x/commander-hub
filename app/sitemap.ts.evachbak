@@ -27,8 +27,6 @@ const PAGES: { path: string; priority: number; freq: MetadataRoute.Sitemap[numbe
   { path: "/seasons", priority: 0.6, freq: "weekly" },
   { path: "/live", priority: 0.5, freq: "daily" },
   { path: "/play", priority: 0.6, freq: "daily" },
-  { path: "/events", priority: 0.7, freq: "daily" },
-  { path: "/achievements", priority: 0.5, freq: "weekly" },
   { path: "/season-1", priority: 0.4, freq: "yearly" },
   { path: "/privacy", priority: 0.2, freq: "yearly" },
   { path: "/terms", priority: 0.2, freq: "yearly" },
