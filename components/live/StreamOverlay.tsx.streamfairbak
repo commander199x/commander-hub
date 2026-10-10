@@ -9,12 +9,11 @@ import { useStream } from "@/lib/stream";
 // (suggested size 420 × 760). Shows the lobby and who's next, refreshing every few seconds.
 export default function StreamOverlay() {
   const { lobby, queue, games, settings, avatars } = useStream(4000);
-  const fair = settings.mode === "fair";
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
   const king = games[0]?.ranking[0];
-  const next = (settings.mode === "fair" ? [...queue].sort((a, b) => a.username.localeCompare(b.username)) : queue).slice(0, settings.size - 1);
+  const next = queue.slice(0, settings.size - 1);
   return createPortal(
     <div id="czov" style={{ position: "fixed", inset: 0, padding: 16, fontFamily: "Oswald, 'Arial Narrow', Impact, sans-serif", color: "#EDEAE0" }}>
       <style>{`html, body { background: transparent !important; } body > *:not(#czov) { display: none !important; }`}</style>
@@ -36,22 +35,14 @@ export default function StreamOverlay() {
         </ol>
         {next.length > 0 && (
           <>
-            <div style={{ padding: "8px 14px 4px", fontSize: 14, letterSpacing: 3, color: "#8FBF4F", borderTop: "1px solid #272B1E" }}>{fair ? `IN THE DRAW · ${queue.length}` : "NEXT UP"}</div>
+            <div style={{ padding: "8px 14px 4px", fontSize: 14, letterSpacing: 3, color: "#8FBF4F", borderTop: "1px solid #272B1E" }}>NEXT UP</div>
             <div style={{ padding: "0 14px 12px", fontSize: 18, lineHeight: 1.5 }}>
               {next.map((q, i) => <span key={q.user_id}>{i > 0 && <span style={{ color: "#3A4029" }}> · </span>}{q.username}</span>)}
               {queue.length > next.length && <span style={{ color: "#83866F" }}> +{queue.length - next.length}</span>}
             </div>
           </>
         )}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderTop: "1px solid #272B1E" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/qr-live.svg" alt="" width={84} height={84} style={{ display: "block", border: "3px solid #EDEAE0" }} />
-          <div style={{ lineHeight: 1.25 }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#E8A63D" }}>SCAN TO JOIN</div>
-            <div style={{ fontSize: 14, letterSpacing: 1, color: "#EDEAE0" }}>COMMANDER.HOST/LIVE</div>
-            <div style={{ fontSize: 12, letterSpacing: 2, color: "#83866F", marginTop: 2 }}>{fair ? "FAIR DRAW · WINNER STAYS" : "FIRST COME · WINNER STAYS"}</div>
-          </div>
-        </div>
+        <div style={{ padding: "6px 14px", fontSize: 13, letterSpacing: 2, color: "#83866F", borderTop: "1px solid #272B1E" }}>JOIN: COMMANDER.HOST/LIVE</div>
       </div>
     </div>,
     document.body
