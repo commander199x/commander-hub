@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Share2, Pencil, Trophy, Swords, Flame, Crown, Target, Globe, Map as MapIcon, Archive, Medal, Award, Zap, Star,
-  Lock, Skull, Handshake, Download, CalendarDays, ShieldCheck, Check, TrendingUp, Gamepad2, ImagePlus,
+  Lock, Skull, Handshake, Download, CalendarDays, ShieldCheck, Check, TrendingUp, Gamepad2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { C } from "@/lib/theme";
@@ -218,8 +218,6 @@ const PROFILE_CSS = `
   background: linear-gradient(90deg, transparent, rgba(232,166,61,0.22), transparent); transform: translateX(-120%) skewX(-20deg);
 }
 .czp-medal.unlocked:hover::after { animation: czp-shine 0.9s ease; }
-@keyframes czp-cover-in { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: none; } }
-.czp-cover { animation: czp-cover-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .czp-parallax { transition: transform 0.4s ease-out; transform: translate3d(calc(var(--px, 0) * 18px), calc(var(--py, 0) * 12px), 0); }
 .czp-parallax-2 { transition: transform 0.4s ease-out; transform: translate3d(calc(var(--px, 0) * -10px), calc(var(--py, 0) * -6px), 0); }
 .czp-sweep { animation: czp-sweep 7s linear infinite; }
@@ -233,7 +231,6 @@ const PROFILE_CSS = `
   .czp-area, .czp-pill { opacity: 1 !important; animation: none !important; }
   .czp-bar { transform: scaleX(1) !important; transition: none !important; }
   .czp-parallax, .czp-parallax-2 { transform: none !important; }
-  .czp-cover { animation: none !important; }
   .czp-medal.unlocked:hover::after { animation: none !important; }
 }
 `;
@@ -491,22 +488,6 @@ export default function ProfileView({ profile, isOwnProfile }: { profile: Profil
   const [histShown, setHistShown] = useState(HISTORY_STEP);
   const [copied, setCopied] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
-  const [banner, setBanner] = useState<{ url: string; pos: "top" | "center" | "bottom" } | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    createClient()
-      .from("profiles")
-      .select("banner_url, banner_position")
-      .eq("id", profile.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        const row = data as { banner_url?: string | null; banner_position?: string | null } | null;
-        if (!cancelled && !error && row?.banner_url) setBanner({ url: row.banner_url, pos: (["top", "center", "bottom"].includes(row.banner_position ?? "") ? row.banner_position : "center") as "top" | "center" | "bottom" });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [profile.id]);
   const [statsRef, statsIn] = useInView<HTMLDivElement>();
   const [formRef, formIn] = useInView<HTMLDivElement>();
   const [mapsRef, mapsIn] = useInView<HTMLDivElement>();
@@ -732,23 +713,6 @@ export default function ProfileView({ profile, isOwnProfile }: { profile: Profil
 
       {/* ================= HERO ================= */}
       <section ref={heroRef} onMouseMove={onHeroMove} className="relative overflow-hidden border-b" style={{ borderColor: C.line }}>
-        {/* ===== cover: the player's banner, or the default tactical cover ===== */}
-        <div aria-hidden="true" className="absolute inset-x-0 top-0 h-[210px] overflow-hidden md:h-[320px]">
-          {banner ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={banner.url} alt="" className="czp-cover h-full w-full object-cover" style={{ objectPosition: `center ${banner.pos}` }} />
-          ) : (
-            <div className="h-full w-full" style={{ background: "linear-gradient(115deg, #1A1F13 0%, #11140C 45%, #0A0C08 100%)" }}>
-              <div className="absolute inset-0" style={{ background: "repeating-linear-gradient(135deg, rgba(232,166,61,0.05) 0 2px, transparent 2px 22px)" }} />
-              <div className="absolute start-6 top-5 text-[10px] uppercase tracking-[0.35em] md:start-16 md:top-7" style={{ color: "rgba(143,191,79,0.55)", fontFamily: "var(--font-mono), monospace" }}>Commander file // {profile.username}</div>
-              <div className="cz-display pointer-events-none absolute -bottom-4 end-4 select-none whitespace-nowrap uppercase leading-none md:end-16" style={{ fontSize: "clamp(4rem, 13vw, 11rem)", fontWeight: 700, color: "transparent", WebkitTextStroke: "1px rgba(232,166,61,0.14)" }}>{profile.username}</div>
-            </div>
-          )}
-          {/* cinematic shading so names and stats read on any image */}
-          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(10,12,8,0.10) 0%, rgba(10,12,8,0.30) 50%, #0A0C08 100%)" }} />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(10,12,8,0.55) 0%, rgba(10,12,8,0) 35%, rgba(10,12,8,0) 65%, rgba(10,12,8,0.45) 100%)" }} />
-          <div className="absolute inset-0 opacity-60" style={{ background: "repeating-linear-gradient(0deg, rgba(10,12,8,0.18) 0 1px, transparent 1px 3px)" }} />
-        </div>
         <div aria-hidden="true" className="absolute inset-0">
           <div
             className="czp-parallax absolute -inset-10"
@@ -756,7 +720,6 @@ export default function ProfileView({ profile, isOwnProfile }: { profile: Profil
               backgroundImage:
                 "linear-gradient(rgba(39,43,30,0.55) 1px, transparent 1px), linear-gradient(90deg, rgba(39,43,30,0.55) 1px, transparent 1px)",
               backgroundSize: "48px 48px",
-              ...(banner ? { maskImage: "linear-gradient(180deg, transparent 0, transparent 300px, #000 380px)", WebkitMaskImage: "linear-gradient(180deg, transparent 0, transparent 300px, #000 380px)" } : {}),
             }}
           />
           <div
@@ -775,13 +738,7 @@ export default function ProfileView({ profile, isOwnProfile }: { profile: Profil
           <div className="absolute inset-0" style={{ background: `linear-gradient(0deg, ${C.void} 0%, rgba(10,12,8,0) 45%)` }} />
         </div>
 
-        <div className={`${WRAP} relative pb-12 pt-[118px] md:pb-16 md:pt-[196px]`}>
-          {isOwnProfile && (
-            <Link href="/profile/edit#cover" className="absolute end-6 top-4 inline-flex min-h-[38px] items-center gap-2 border px-3 text-[11px] uppercase tracking-[0.16em] backdrop-blur-sm transition-colors hover:bg-[rgba(23,27,16,0.85)] md:end-16 md:top-6" style={{ borderColor: "rgba(237,234,224,0.35)", color: C.paper, background: "rgba(10,12,8,0.55)" }}>
-              <ImagePlus size={14} aria-hidden="true" />
-              {lang === "ar" ? "تعديل الغلاف" : "Edit cover"}
-            </Link>
-          )}
+        <div className={`${WRAP} relative pb-12 pt-14 md:pb-16 md:pt-20`}>
           <div className="flex flex-col gap-8 md:flex-row md:items-end">
             {/* avatar with rotating ring */}
             <div className="relative h-40 w-40 shrink-0 md:h-48 md:w-48">

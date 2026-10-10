@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ImagePlus, Loader2, ShieldCheck, UploadCloud, Trash2, Image as ImageIcon } from "lucide-react";
+import { ImagePlus, Loader2, ShieldCheck, UploadCloud } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { C } from "@/lib/theme";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -33,10 +33,6 @@ const TEXT = {
     tooBig: "Image must be under 2MB.",
     noBio: "No bio yet.",
     loading: "Loading profile…",
-    cover: "Cover banner", coverDrop: "Drop a wide image here or click to choose", coverLimit: "Wide images look best (around 1920 × 640). Resized automatically.",
-    coverPos: "Show which part", top: "Top", center: "Center", bottom: "Bottom", removeCover: "Remove cover",
-    coverNeedsSql: "Cover banners aren't switched on yet — an admin needs to run sql/profile-banner.sql once in Supabase.",
-    coverBad: "That file isn't an image we can read.", preparing: "Preparing image…",
   },
   ar: {
     eyebrow: "ملف القائد",
@@ -56,35 +52,8 @@ const TEXT = {
     tooBig: "يجب أن تكون الصورة أقل من 2 ميغابايت.",
     noBio: "لا توجد نبذة بعد.",
     loading: "جارٍ تحميل الملف…",
-    cover: "صورة الغلاف", coverDrop: "أفلت صورة عريضة هنا أو اضغط للاختيار", coverLimit: "الصور العريضة تبدو أفضل (حوالي 1920 × 640). يتم تصغيرها تلقائياً.",
-    coverPos: "اعرض أي جزء", top: "الأعلى", center: "الوسط", bottom: "الأسفل", removeCover: "إزالة الغلاف",
-    coverNeedsSql: "صور الغلاف غير مفعّلة بعد — يجب على أحد المشرفين تشغيل sql/profile-banner.sql مرة واحدة في Supabase.",
-    coverBad: "لا يمكن قراءة هذا الملف كصورة.", preparing: "جارٍ تجهيز الصورة…",
   },
 };
-
-type CoverPos = "top" | "center" | "bottom";
-
-// Shrinks a picture to at most 1920 × 1080 and saves it as a compressed JPG (keeps uploads small and fast).
-async function prepareCover(file: File): Promise<Blob> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image();
-      i.onload = () => resolve(i);
-      i.onerror = () => reject(new Error("bad image"));
-      i.src = url;
-    });
-    const scale = Math.min(1, 1920 / img.naturalWidth, 1080 / img.naturalHeight);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
-    canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("bad image"))), "image/jpeg", 0.85));
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -104,15 +73,6 @@ export default function EditProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [original, setOriginal] = useState({ username: "", bio: "" });
   const [dragOver, setDragOver] = useState(false);
-  const [coverReady, setCoverReady] = useState(true);
-  const [coverUrl, setCoverUrl] = useState("");
-  const [coverPos, setCoverPos] = useState<CoverPos>("center");
-  const [coverBlob, setCoverBlob] = useState<Blob | null>(null);
-  const [coverPreview, setCoverPreview] = useState("");
-  const [coverRemoved, setCoverRemoved] = useState(false);
-  const [coverBusy, setCoverBusy] = useState(false);
-  const [coverDrag, setCoverDrag] = useState(false);
-  const [originalCover, setOriginalCover] = useState<{ url: string; pos: CoverPos }>({ url: "", pos: "center" });
 
   useEffect(() => {
     async function loadProfile() {
@@ -141,19 +101,7 @@ export default function EditProfilePage() {
         setOriginal({ username: profile.username ?? "", bio: profile.bio ?? "" });
       }
 
-      const { data: cover, error: coverError } = await supabase.from("profiles").select("banner_url, banner_position").eq("id", user.id).single();
-      if (coverError) setCoverReady(false);
-      else {
-        const c = cover as { banner_url: string | null; banner_position: CoverPos | null };
-        const pos = (c.banner_position ?? "center") as CoverPos;
-        setCoverUrl(c.banner_url ?? "");
-        setCoverPreview(c.banner_url ?? "");
-        setCoverPos(pos);
-        setOriginalCover({ url: c.banner_url ?? "", pos });
-      }
-
       setLoading(false);
-      if (window.location.hash === "#cover") setTimeout(() => document.getElementById("cover")?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
     }
 
     loadProfile();
@@ -175,38 +123,6 @@ export default function EditProfilePage() {
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     acceptFile(e.target.files?.[0]);
-  }
-
-  async function acceptCover(file: File | undefined | null) {
-    if (!file) return;
-    setError(null);
-    setCoverBusy(true);
-    try {
-      const blob = await prepareCover(file);
-      setCoverBlob(blob);
-      setCoverPreview(URL.createObjectURL(blob));
-      setCoverRemoved(false);
-    } catch {
-      setError(tx.coverBad);
-    } finally {
-      setCoverBusy(false);
-    }
-  }
-
-  function removeCover() {
-    setCoverBlob(null);
-    setCoverPreview("");
-    setCoverRemoved(true);
-  }
-
-  async function uploadCoverIfNeeded(): Promise<string | null> {
-    if (coverRemoved) return null;
-    if (!coverBlob || !userId) return coverUrl || null;
-    const path = `${userId}/banner.jpg`;
-    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, coverBlob, { upsert: true, contentType: "image/jpeg" });
-    if (uploadError) throw new Error(uploadError.message);
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    return `${data.publicUrl}?t=${Date.now()}`;
   }
 
   async function uploadAvatarIfNeeded(): Promise<string> {
@@ -232,7 +148,6 @@ export default function EditProfilePage() {
     return `${data.publicUrl}?t=${Date.now()}`;
   }
 
-  // (coverDirty is computed below on every render; handleSave runs later, so it sees the current value)
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -253,14 +168,6 @@ export default function EditProfilePage() {
 
       if (updateError) throw new Error(updateError.message);
 
-      if (coverReady && coverDirty) {
-        setUploading(true);
-        const finalCover = await uploadCoverIfNeeded();
-        setUploading(false);
-        const { error: coverError } = await supabase.from("profiles").update({ banner_url: finalCover, banner_position: coverPos }).eq("id", userId);
-        if (coverError) throw new Error(coverError.message);
-      }
-
       router.push(`/profile/${username}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -269,8 +176,7 @@ export default function EditProfilePage() {
     }
   }
 
-  const coverDirty = !!coverBlob || coverRemoved || coverPos !== originalCover.pos;
-  const dirty = !!avatarFile || username !== original.username || bio !== original.bio || coverDirty;
+  const dirty = !!avatarFile || username !== original.username || bio !== original.bio;
   const bioRatio = Math.min(1, bio.length / BIO_MAX);
   const R = 11;
   const CIRC = 2 * Math.PI * R;
@@ -293,15 +199,7 @@ export default function EditProfilePage() {
             <aside className="czau-in lg:sticky lg:top-[calc(var(--cz-header-h,64px)+24px)]">
               <div className="mb-3 text-[11px] uppercase tracking-[0.2em]" style={{ color: C.muted }}>{tx.preview}</div>
               <div className="relative overflow-hidden border" style={{ background: C.panel, borderColor: C.amberDim }}>
-                <div className="relative h-28 overflow-hidden">
-                  {coverPreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img key={coverPreview} src={coverPreview} alt="" className="czau-pop h-full w-full object-cover" style={{ objectPosition: `center ${coverPos}` }} />
-                  ) : (
-                    <div className="h-full w-full" style={{ background: "radial-gradient(ellipse 70% 120% at 80% 0%, rgba(232,166,61,0.25), transparent 60%), linear-gradient(rgba(39,43,30,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(39,43,30,0.6) 1px, transparent 1px)", backgroundSize: "100% 100%, 24px 24px, 24px 24px" }} />
-                  )}
-                  <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(18,21,14,0) 40%, #12150E 100%)" }} />
-                </div>
+                <div className="h-24" style={{ background: "radial-gradient(ellipse 70% 120% at 80% 0%, rgba(232,166,61,0.25), transparent 60%), linear-gradient(rgba(39,43,30,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(39,43,30,0.6) 1px, transparent 1px)", backgroundSize: "100% 100%, 24px 24px, 24px 24px" }} />
                 <div className="-mt-12 px-6 pb-6">
                   <div className="relative h-24 w-24">
                     <div className="absolute -inset-[4px] rounded-full" style={{ background: `conic-gradient(from 0deg, ${C.amber}, transparent 30%, ${C.radar} 50%, transparent 70%, ${C.amber})` }} />
@@ -321,48 +219,6 @@ export default function EditProfilePage() {
 
             {/* Form */}
             <form onSubmit={handleSave} className="czau-in border p-6 md:p-8" style={{ background: C.panel, borderColor: C.line, animationDelay: "0.1s" }}>
-              <div id="cover" className="mb-6 scroll-mt-28">
-                <div className="mb-2 text-[11px] uppercase tracking-[0.18em]" style={{ color: C.muted }}>{tx.cover}</div>
-                {!coverReady ? (
-                  <p className="border px-4 py-3 text-sm" style={{ borderColor: C.amberDim, color: C.muted, background: C.void }}>{tx.coverNeedsSql}</p>
-                ) : (
-                  <>
-                    <label
-                      htmlFor="coverFile"
-                      onDragOver={(e) => { e.preventDefault(); setCoverDrag(true); }}
-                      onDragLeave={() => setCoverDrag(false)}
-                      onDrop={(e) => { e.preventDefault(); setCoverDrag(false); acceptCover(e.dataTransfer.files?.[0]); }}
-                      className="relative flex aspect-[3/1] w-full cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden border-2 border-dashed text-center transition-colors"
-                      style={{ borderColor: coverDrag ? C.amber : C.amberDim, background: C.void }}
-                    >
-                      {coverPreview && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={coverPreview} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `center ${coverPos}`, opacity: coverDrag ? 0.5 : 1 }} />
-                      )}
-                      <span className="relative inline-flex flex-col items-center gap-2 px-4 py-3" style={coverPreview ? { background: "rgba(10,12,8,0.7)" } : undefined}>
-                        {coverBusy ? <Loader2 size={24} className="animate-spin" style={{ color: C.amber }} aria-hidden="true" /> : coverDrag ? <UploadCloud size={24} style={{ color: C.amber }} aria-hidden="true" /> : <ImageIcon size={24} style={{ color: C.amber }} aria-hidden="true" />}
-                        <span className="text-sm" style={{ color: C.paper, fontWeight: 600 }}>{coverBusy ? tx.preparing : tx.coverDrop}</span>
-                        {!coverPreview && <span className="text-xs" style={{ color: C.muted }}>{tx.coverLimit}</span>}
-                      </span>
-                    </label>
-                    <input id="coverFile" type="file" accept="image/*" onChange={(e) => acceptCover(e.target.files?.[0])} className="sr-only" />
-                    {coverPreview && (
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span className="me-1 text-xs" style={{ color: C.muted }}>{tx.coverPos}</span>
-                        {(["top", "center", "bottom"] as CoverPos[]).map((p) => (
-                          <button key={p} type="button" aria-pressed={coverPos === p} onClick={() => setCoverPos(p)} className="min-h-[38px] border px-3 text-xs uppercase tracking-widest" style={{ background: coverPos === p ? C.amber : "transparent", color: coverPos === p ? C.void : C.paper, borderColor: coverPos === p ? C.amber : C.amberDim, fontWeight: coverPos === p ? 700 : 500 }}>
-                            {tx[p]}
-                          </button>
-                        ))}
-                        <button type="button" onClick={removeCover} className="ms-auto inline-flex min-h-[38px] items-center gap-1.5 border px-3 text-xs uppercase tracking-widest" style={{ borderColor: "rgba(248,113,113,0.5)", color: "#F87171" }}>
-                          <Trash2 size={13} aria-hidden="true" />{tx.removeCover}
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
               <div className="mb-6">
                 <div className="mb-2 text-[11px] uppercase tracking-[0.18em]" style={{ color: C.muted }}>{tx.photo}</div>
                 <label
