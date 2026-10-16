@@ -14,13 +14,13 @@ const TEXT = {
   en: {
     onAir: "On air", offAir: "Off air", liveTitle: "We're live on TikTok", offTitle: "Not live right now",
     liveSub: "Jump in, say hi in the chat and watch Generals Zero Hour at its best.", offSub: "Follow us on TikTok so you get a notification the moment we go live.",
-    watch: "Watch on TikTok", follow: "Follow on TikTok", since: "Live since", until: "Scheduled until", videos: "Watch past videos",
+    watch: "Watch on TikTok", joinQ: "Join the stream queue", follow: "Follow on TikTok", since: "Live since", until: "Scheduled until", videos: "Watch past videos",
     note: "TikTok streams can only be watched on TikTok — the button opens the stream in the app or a new tab.",
   },
   ar: {
     onAir: "على الهواء", offAir: "خارج البث", liveTitle: "نحن في بث مباشر على تيك توك", offTitle: "لا يوجد بث الآن",
     liveSub: "انضم، سلّم في الدردشة، وشاهد جنرالات الساعة الصفر في أفضل حالاتها.", offSub: "تابعنا على تيك توك لتصلك إشعارات فور بدء البث.",
-    watch: "شاهد على تيك توك", follow: "تابع على تيك توك", since: "مباشر منذ", until: "حتى", videos: "شاهد الفيديوهات السابقة",
+    watch: "شاهد على تيك توك", joinQ: "انضم لطابور البث", follow: "تابع على تيك توك", since: "مباشر منذ", until: "حتى", videos: "شاهد الفيديوهات السابقة",
     note: "لا يمكن مشاهدة بث تيك توك إلا على تيك توك — الزر يفتح البث في التطبيق أو في تبويب جديد.",
   },
 };
@@ -37,9 +37,11 @@ export default function LiveView() {
       <style>{`
         @keyframes czlv-wave { 0% { transform: scale(0.6); opacity: 0.8; } 100% { transform: scale(2.4); opacity: 0; } }
         @keyframes czlv-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+        @keyframes czlv-glow { 0%, 100% { box-shadow: 0 0 18px rgba(143,191,79,0.35); } 50% { box-shadow: 0 0 40px rgba(143,191,79,0.75); } }
+        .czlv-join { animation: czlv-glow 1.8s ease-in-out infinite; }
         .czlv-wave { animation: czlv-wave 2.4s ease-out infinite; }
         .czlv-in { animation: czlv-in 0.6s cubic-bezier(0.2,0.7,0.2,1) both; }
-        @media (prefers-reduced-motion: reduce) { .czlv-wave, .czlv-in { animation: none !important; } }
+        @media (prefers-reduced-motion: reduce) { .czlv-join { animation: none !important; } .czlv-wave, .czlv-in { animation: none !important; } }
       `}</style>
       <section className="relative overflow-hidden border-b" style={{ borderColor: C.line, background: live ? "radial-gradient(ellipse 60% 70% at 50% 40%, rgba(220,38,38,0.18), transparent 65%)" : "radial-gradient(ellipse 60% 70% at 50% 40%, rgba(232,166,61,0.08), transparent 65%)" }}>
         <div className={`${WRAP} flex flex-col items-center pb-16 pt-16 text-center md:pt-24`}>
@@ -60,6 +62,9 @@ export default function LiveView() {
             </p>
           )}
           <div className="czlv-in mt-8 flex flex-wrap justify-center gap-3" style={{ animationDelay: "0.22s" }}>
+            <a href="#queue" onClick={(e) => { e.preventDefault(); window.dispatchEvent(new Event("cz:join-queue")); }} className="czlv-join inline-flex min-h-[56px] items-center gap-2.5 px-8 text-sm uppercase tracking-[0.14em] transition-[filter] hover:brightness-110" style={{ background: C.radar, color: C.void, fontWeight: 800, boxShadow: "0 0 30px rgba(143,191,79,0.45)" }}>
+              🎮 {tx.joinQ}
+            </a>
             <a href={live ? tiktokLiveUrl() : TIKTOK_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[56px] items-center gap-2.5 px-8 text-sm uppercase tracking-[0.14em] transition-[filter] hover:brightness-110" style={{ background: live ? RED : C.amber, color: live ? "#fff" : C.void, fontWeight: 800, boxShadow: live ? "0 0 30px rgba(220,38,38,0.45)" : "none" }}>
               {live ? <PlayCircle size={20} aria-hidden="true" /> : <BellRing size={18} aria-hidden="true" />}
               {live ? tx.watch : tx.follow}

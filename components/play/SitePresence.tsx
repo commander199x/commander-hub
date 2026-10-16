@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { setOnlinePlayers, type OnlinePlayer } from "@/lib/presence";
+import { wantsJoin } from "@/lib/joinIntent";
 
 // Shares "I'm on the site" (signed-in players only) so Find a game can show who's online.
 // Rendered ONCE, inside the header. Renders nothing.
@@ -23,6 +24,11 @@ export default function SitePresence() {
         username = (data as { username?: string } | null)?.username ?? null;
       }
       if (cancelled) return;
+      // they tapped "Log in to join" on the stream queue: now signed in → straight back to the queue
+      if (username && wantsJoin() && !window.location.pathname.startsWith("/live")) {
+        window.location.assign("/live?join=1");
+        return;
+      }
       channel = supabase.channel("site-presence", { config: { presence: { key: user?.id ?? crypto.randomUUID() } } });
       channel
         .on("presence", { event: "sync" }, () => {

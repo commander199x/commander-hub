@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { rememberJoin, wantsJoin, forgetJoin } from "@/lib/joinIntent";
 import Link from "next/link";
 import { Crown, Users, ListOrdered, LogIn, LogOut, Loader2, Info, Shield, RotateCcw, UserX, Play, Undo2, History, Lock, Unlock, Trophy, ArrowRight, Tv, X, Dices, Clock3, UserPlus, Ticket } from "lucide-react";
 import { C } from "@/lib/theme";
@@ -32,6 +34,7 @@ const TEXT = {
     stays: "Stays", leaves: "Leaves", joins: "Joins", rotate: "Confirm & rotate", ladder: "Also record on the FFA ladder", noShow: "No-show — give seat to next",
     removeQ: "Remove from queue", overlay: "Stream overlay (OBS)", done: "Next game is set — new players notified.", needAll: "Tap every player in finishing order.",
     seatOrder: "Seat order", fifo: "First come, first served", fair: "Fair draw",
+    playOnStream: "Play on stream", loginToJoin: "Log in to join", guestHint: "Want to play on stream? Log in — you'll be added to the queue automatically.", joinedToast: "You're in the queue! You'll get a notification when it's your turn.", shortLink: "Short link to say on stream",
     fifoHint: "The queue order decides who gets the open seats.", fairHint: "Players who haven't played tonight go first, then a random draw — every round you wait adds a ticket.",
     inDraw: "In the draw", drawJoin: (n: number) => (n === 1 ? "1 player by fair draw" : `${n} players by fair draw`),
     youDraw: (t: number, open: number) => `You're in the draw — ${t} ${t === 1 ? "ticket" : "tickets"} · up to ${open} seats open after each game`,
@@ -56,6 +59,7 @@ const TEXT = {
     stays: "يبقى", leaves: "يخرج", joins: "يدخل", rotate: "تأكيد وتدوير", ladder: "سجّلها أيضاً في تصنيف FFA", noShow: "لم يحضر — أعطِ المقعد للتالي",
     removeQ: "إزالة من الطابور", overlay: "واجهة البث (OBS)", done: "تم تجهيز المباراة القادمة — تم إشعار اللاعبين الجدد.", needAll: "اضغط كل اللاعبين حسب ترتيب الإنهاء.",
     seatOrder: "ترتيب المقاعد", fifo: "الأسبق أولاً", fair: "قرعة عادلة",
+    playOnStream: "العب على البث", loginToJoin: "سجّل الدخول للانضمام", guestHint: "تريد اللعب على البث؟ سجّل الدخول — وستُضاف إلى الطابور تلقائياً.", joinedToast: "أنت في الطابور! سيصلك إشعار عندما يحين دورك.", shortLink: "رابط قصير لقوله على البث",
     fifoHint: "ترتيب الطابور يحدد من يأخذ المقاعد الفارغة.", fairHint: "من لم يلعب الليلة يدخل أولاً، ثم قرعة عشوائية — كل جولة انتظار تضيف لك بطاقة.",
     inDraw: "في القرعة", drawJoin: (n: number) => `${n} بالقرعة العادلة`,
     youDraw: (t: number, open: number) => `أنت في القرعة — ${t} بطاقات · حتى ${open} مقاعد تُفتح بعد كل مباراة`,
@@ -73,7 +77,11 @@ const CSS = `
 .czsq-in { animation: czsq-in 0.45s cubic-bezier(0.2,0.7,0.2,1) both; }
 .czsq-king { animation: czsq-glow 2.4s ease-in-out infinite; }
 .czsq-blink { animation: czsq-blink 1.2s steps(2) infinite; }
-@media (prefers-reduced-motion: reduce) { .czsq-in, .czsq-king, .czsq-blink { animation: none !important; } }
+@keyframes czsq-flash { 0%, 100% { box-shadow: 0 0 0 0 rgba(143,191,79,0); } 50% { box-shadow: 0 0 0 4px rgba(143,191,79,0.55), 0 0 40px rgba(143,191,79,0.45); } }
+@keyframes czsq-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.czsq-flash { animation: czsq-flash 1.1s ease-in-out 4; }
+.czsq-bob { animation: czsq-bob 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .czsq-in, .czsq-king, .czsq-blink, .czsq-flash, .czsq-bob { animation: none !important; } }
 `;
 
 function Box({ title, icon: Icon, right, children, accent = C.amber }: { title: string; icon: typeof Users; right?: ReactNode; children: ReactNode; accent?: string }) {
@@ -109,6 +117,43 @@ export default function StreamQueue() {
     })();
   }, [supabase]);
 
+  // ---- joining made obvious: /q link, "Log in to join" that comes back, hero button ----
+  const [flash, setFlash] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const statusRef = useRef<HTMLDivElement>(null);
+  const autoTried = useRef(false);
+  useEffect(() => setMounted(true), []);
+  const goToQueue = () => {
+    document.getElementById("queue")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setFlash(false);
+    requestAnimationFrame(() => setFlash(true));
+  };
+  // arrived via commander.host/q (or came back after logging in): scroll, highlight, and join
+  useEffect(() => {
+    if (me === undefined || ready !== true || autoTried.current) return;
+    const fromLink = new URLSearchParams(window.location.search).get("join") === "1";
+    if (!fromLink && !wantsJoin()) return;
+    autoTried.current = true;
+    if (fromLink) window.history.replaceState(null, "", window.location.pathname + "#queue");
+    setTimeout(goToQueue, 250);
+    if (me === null) { rememberJoin(); return; } // not signed in yet: remember, they'll be brought back
+    forgetJoin();
+    const seated = lobby.some((l) => l.user_id === me.id);
+    const queued = queue.some((x) => x.user_id === me.id);
+    if (!seated && !queued && settings.open) joinQueue(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, ready, settings.open]);
+  // the big "Join the queue" button at the top of /live
+  useEffect(() => {
+    const onJoin = () => {
+      goToQueue();
+      if (me && settings.open && !lobby.some((l) => l.user_id === me.id) && !queue.some((x) => x.user_id === me.id)) joinQueue(true);
+    };
+    window.addEventListener("cz:join-queue", onJoin);
+    return () => window.removeEventListener("cz:join-queue", onJoin);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, settings.open, lobby, queue]);
+
   // forget a half-entered finishing order if the lobby changes underneath it
   const lobbyKey = lobby.map((l) => l.username).join("|");
   useEffect(() => setOrder((o) => o.filter((n) => lobby.some((l) => l.username === n))), [lobbyKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -121,12 +166,13 @@ export default function StreamQueue() {
   const myEntry = me ? queue.find((q) => q.user_id === me.id) : undefined;
   const lastWinner = games[0]?.ranking[0];
 
-  async function joinQueue() {
+  async function joinQueue(announce = false) {
     if (!me) return;
     setBusy("join");
     const { error } = await supabase.from("stream_queue").insert({ user_id: me.id, username: me.username });
     setBusy(null);
     if (error) fb.error(error.message);
+    else if (announce) fb.success(tx.joinedToast);
     refresh();
   }
   async function leaveQueue(userId?: string) {
@@ -197,7 +243,7 @@ export default function StreamQueue() {
   }
 
   return (
-    <section className={`${WRAP} mt-12 pb-16`} aria-labelledby="czsq-title" style={{ color: C.paper }}>
+    <section id="queue" className={`${WRAP} mt-12 scroll-mt-24 pb-16`} aria-labelledby="czsq-title" style={{ color: C.paper }}>
       <style>{CSS}</style>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -212,20 +258,20 @@ export default function StreamQueue() {
       </div>
 
       {/* your status */}
-      <div className="czsq-in mt-6 flex flex-wrap items-center gap-4 border p-4" style={{ borderColor: mySeat ? C.radar : myPos ? C.amber : C.line, background: mySeat ? "linear-gradient(120deg, rgba(143,191,79,0.12), #0E110B 60%)" : myPos ? "linear-gradient(120deg, rgba(232,166,61,0.10), #0E110B 60%)" : "#0E110B" }}>
+      <div ref={statusRef} className={`czsq-in mt-6 flex flex-wrap items-center gap-4 border p-4 ${flash ? "czsq-flash" : ""}`} style={{ borderColor: mySeat ? C.radar : myPos ? C.amber : C.line, background: mySeat ? "linear-gradient(120deg, rgba(143,191,79,0.12), #0E110B 60%)" : myPos ? "linear-gradient(120deg, rgba(232,166,61,0.10), #0E110B 60%)" : "#0E110B" }}>
         <span className="flex-1 text-sm" style={{ fontWeight: 600 }}>
-          {me === null ? tx.signIn
+          {me === null ? (settings.open ? tx.guestHint : tx.closedNote)
             : mySeat ? <span style={{ color: C.radar }}>{tx.youPlaying(mySeat.seat)}</span>
             : myPos && fair ? <span style={{ color: C.amber }}>{tx.youDraw(1 + (myEntry?.skips ?? 0), seats - 1)}</span>
             : myPos ? <span style={{ color: C.amber }}>{myPos <= seats - 1 ? tx.youNext : tx.youEta(myPos, Math.ceil(myPos / (seats - 1)))}</span>
             : settings.open ? tx.sub : tx.closedNote}
         </span>
         {me === null ? (
-          <Link href="/login" className="inline-flex min-h-[46px] items-center gap-2 px-6 text-xs uppercase tracking-[0.16em]" style={{ background: C.amber, color: C.void, fontWeight: 800 }}><LogIn size={15} className="rtl:-scale-x-100" aria-hidden="true" />{tx.signIn}</Link>
+          <Link href="/login" onClick={rememberJoin} className="inline-flex min-h-[52px] items-center gap-2 px-7 text-sm uppercase tracking-[0.16em]" style={{ background: C.radar, color: C.void, fontWeight: 800, boxShadow: "0 0 24px rgba(143,191,79,0.35)" }}><LogIn size={16} className="rtl:-scale-x-100" aria-hidden="true" />{tx.loginToJoin}</Link>
         ) : mySeat ? null : myPos ? (
           <button type="button" onClick={() => leaveQueue()} disabled={busy === "leave"} className="inline-flex min-h-[46px] items-center gap-2 border px-5 text-xs uppercase tracking-[0.16em] disabled:opacity-50" style={{ borderColor: C.lineStrong, color: C.paper }}><LogOut size={15} className="rtl:-scale-x-100" aria-hidden="true" />{tx.leave}</button>
         ) : (
-          <button type="button" onClick={joinQueue} disabled={!settings.open || busy === "join"} className="inline-flex min-h-[46px] items-center gap-2 px-6 text-xs uppercase tracking-[0.16em] disabled:opacity-40" style={{ background: C.radar, color: C.void, fontWeight: 800, boxShadow: settings.open ? "0 0 24px rgba(143,191,79,0.3)" : "none" }}>
+          <button type="button" onClick={() => joinQueue(true)} disabled={!settings.open || busy === "join"} className="inline-flex min-h-[52px] items-center gap-2 px-7 text-sm uppercase tracking-[0.16em] disabled:opacity-40" style={{ background: C.radar, color: C.void, fontWeight: 800, boxShadow: settings.open ? "0 0 24px rgba(143,191,79,0.3)" : "none" }}>
             {busy === "join" ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}{tx.join}
           </button>
         )}
@@ -294,6 +340,21 @@ export default function StreamQueue() {
         </Box>
       </div>
 
+      {mounted && settings.open && !mySeat && !myPos && createPortal(
+        <div className="fixed inset-x-0 bottom-0 z-[80] border-t px-4 pt-3 md:hidden" style={{ background: "rgba(10,12,8,0.94)", borderColor: C.radar, paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))", backdropFilter: "blur(8px)" }}>
+          {me ? (
+            <button type="button" onClick={() => { goToQueue(); joinQueue(true); }} disabled={busy === "join"} className="czsq-bob flex min-h-[54px] w-full items-center justify-center gap-2 text-sm uppercase tracking-[0.16em] disabled:opacity-60" style={{ background: C.radar, color: C.void, fontWeight: 800, boxShadow: "0 0 26px rgba(143,191,79,0.4)" }}>
+              {busy === "join" ? <Loader2 size={17} className="animate-spin" aria-hidden="true" /> : <Play size={17} aria-hidden="true" />}🎮 {tx.playOnStream} — {tx.join}
+            </button>
+          ) : me === null ? (
+            <Link href="/login" onClick={rememberJoin} className="czsq-bob flex min-h-[54px] w-full items-center justify-center gap-2 text-sm uppercase tracking-[0.16em]" style={{ background: C.radar, color: C.void, fontWeight: 800 }}>
+              <LogIn size={17} className="rtl:-scale-x-100" aria-hidden="true" />🎮 {tx.loginToJoin}
+            </Link>
+          ) : null}
+        </div>,
+        document.body
+      )}
+
       {/* host panel */}
       {me?.admin && (
         <div className="czsq-in relative mt-6 border p-5" style={{ borderColor: "rgba(220,38,38,0.55)", background: "linear-gradient(140deg, rgba(220,38,38,0.08), #0E110B 55%)" }}>
@@ -301,7 +362,8 @@ export default function StreamQueue() {
             <Shield size={18} style={{ color: RED }} aria-hidden="true" />
             <h3 className="cz-display text-xl uppercase" style={{ fontWeight: 700 }}>{tx.host}</h3>
             <span className="text-xs" style={{ color: C.muted }}>{tx.hostSub}</span>
-            <Link href="/live/overlay" target="_blank" className="ms-auto inline-flex min-h-[38px] items-center gap-2 border px-3 text-[11px] uppercase tracking-widest" style={{ borderColor: C.lineStrong, color: C.paper }}><Tv size={14} aria-hidden="true" />{tx.overlay}</Link>
+            <span className="ms-auto hidden items-center gap-2 text-xs sm:inline-flex" style={{ color: C.muted }}>{tx.shortLink}: <b className="cz-display text-base tracking-wider" style={{ color: C.radar }}>commander.host/q</b></span>
+            <Link href="/live/overlay" target="_blank" className="inline-flex min-h-[38px] items-center gap-2 border px-3 text-[11px] uppercase tracking-widest" style={{ borderColor: C.lineStrong, color: C.paper }}><Tv size={14} aria-hidden="true" />{tx.overlay}</Link>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button type="button" onClick={() => saveSettings({ open: !settings.open })} className="inline-flex min-h-[44px] items-center gap-2 px-4 text-xs uppercase tracking-widest" style={settings.open ? { border: `1px solid ${C.lineStrong}`, color: C.paper } : { background: C.radar, color: C.void, fontWeight: 800 }}>

@@ -47,8 +47,8 @@ export default function StreamOverlay() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/qr-live.svg" alt="" width={84} height={84} style={{ display: "block", border: "3px solid #EDEAE0" }} />
           <div style={{ lineHeight: 1.25 }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#E8A63D" }}>SCAN TO JOIN</div>
-            <div style={{ fontSize: 14, letterSpacing: 1, color: "#EDEAE0" }}>COMMANDER.HOST/LIVE</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#E8A63D" }}>SCAN OR TYPE</div>
+            <div style={{ fontSize: 21, fontWeight: 700, color: "#8FBF4F", lineHeight: 1.1, whiteSpace: "nowrap" }}>COMMANDER.HOST/Q</div>
             <div style={{ fontSize: 12, letterSpacing: 2, color: "#83866F", marginTop: 2 }}>{fair ? "FAIR DRAW · WINNER STAYS" : "FIRST COME · WINNER STAYS"}</div>
           </div>
         </div>
