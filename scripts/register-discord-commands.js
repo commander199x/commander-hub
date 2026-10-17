@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
- * Registers all Commander slash commands with Discord.
- * Run once after installing, and again whenever you add a command or a link.
+ * Registers ALL Commander slash commands with Discord in one go (replaces the old list,
+ * so removed commands disappear). Run after installing, and whenever you change a link.
  *   node scripts/register-discord-commands.js
  * Reads DISCORD_APPLICATION_ID and DISCORD_BOT_TOKEN from .env.local (never commit that file).
  * Social commands are registered only for links filled in lib/discord-socials.ts.
@@ -24,15 +24,16 @@ function readSocials() {
   const file = path.join(process.cwd(), 'lib/discord-socials.ts');
   const out = {};
   if (!fs.existsSync(file)) return out;
-  for (const m of fs.readFileSync(file, 'utf8').matchAll(/"?(youtube|tiktok|kick|twitch)"?\s*:\s*"([^"]*)"/g)) out[m[1]] = m[2].trim();
-  const sup = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').match(/SUPPORT_CHANNEL_ID\s*=\s*"(\d*)"/) : null;
+  const text = fs.readFileSync(file, 'utf8');
+  for (const m of text.matchAll(/"?(youtube|tiktok|kick|twitch)"?\s*:\s*"([^"]*)"/g)) out[m[1]] = m[2].trim();
+  const sup = text.match(/SUPPORT_CHANNEL_ID\s*=\s*"(\d*)"/);
   out.support = sup ? sup[1] : '';
   return out;
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
 const LABEL = { youtube: 'YouTube', tiktok: 'TikTok', kick: 'Kick', twitch: 'Twitch' };
+const player = (name, en, ar, required = true) => ({ type: 3, name, description: en, description_localizations: { ar }, required, autocomplete: true });
+const cmd = (name, en, ar, options) => ({ name, type: 1, description: en, description_localizations: { ar }, ...(options ? { options } : {}) });
 
 (async () => {
   const env = { ...readEnv(), ...process.env };
@@ -44,55 +45,53 @@ const LABEL = { youtube: 'YouTube', tiktok: 'TikTok', kick: 'Kick', twitch: 'Twi
   }
 
   const commands = [
-    {
-      name: 'ladder',
-      type: 1,
-      description: "Show a player's Commander rating and rank, or the top 5",
-      options: [
-        { type: 3, name: 'player', description: 'Player name on commander.host (leave empty for the top 5)', required: false },
-        {
-          type: 3, name: 'mode', description: 'Which ladder (default: Team)', required: false,
-          choices: [{ name: 'Team', value: 'team' }, { name: 'FFA', value: 'ffa' }],
-        },
-      ],
-    },
-    { name: 'help', type: 1, description: 'List all Commander bot commands' },
-    { name: 'whoareu', type: 1, description: 'Meet the Commander bot' },
+    cmd('ladder', 'Top 10 on the ranked ladder (or one player)', 'أفضل 10 في التصنيف (أو لاعب واحد)', [
+      player('player', 'A player (leave empty for the top 10)', 'لاعب (اتركه فارغاً لأفضل 10)', false),
+      { type: 3, name: 'mode', description: 'Which ladder (default: Team)', description_localizations: { ar: 'أي تصنيف (الافتراضي: الفرق)' }, required: false, choices: [{ name: 'Team', value: 'team', name_localizations: { ar: 'الفرق' } }, { name: 'FFA', value: 'ffa' }] },
+    ]),
+    cmd('player', "A player's full commander file", 'ملف قائد كامل للاعب', [player('name', 'Player name — start typing', 'اسم اللاعب — ابدأ بالكتابة')]),
+    cmd('h2h', 'Head-to-head between two players', 'مواجهة مباشرة بين لاعبَين', [player('player1', 'First player', 'اللاعب الأول'), player('player2', 'Second player', 'اللاعب الثاني')]),
+    cmd('achievements', "A player's achievements", 'إنجازات لاعب', [player('name', 'Player name — start typing', 'اسم اللاعب — ابدأ بالكتابة')]),
+    cmd('meta', 'The best generals right now', 'أفضل الجنرالات الآن'),
+    cmd('recent', 'The latest ranked results', 'آخر النتائج المصنّفة'),
+    cmd('play', "Who's ready to play right now", 'من جاهز للعب الآن'),
+    cmd('events', 'Upcoming clan nights, tournaments and streams', 'ليالي الكلان والبطولات والبث القادمة'),
+    cmd('live', 'Are we live? Plus the stream queue', 'هل نحن مباشر؟ مع طابور البث'),
+    cmd('queue', 'The stream lobby and who is next', 'لوبي البث ومن التالي'),
+    cmd('help', 'Everything the Commander bot can do', 'كل ما يستطيع بوت كوماندر فعله'),
+    cmd('whoareu', 'Meet the Commander bot', 'تعرّف على بوت كوماندر'),
   ];
   const socials = readSocials();
-  for (const key of Object.keys(LABEL)) {
-    if (socials[key]) commands.push({ name: key, type: 1, description: `Get the Commander ${LABEL[key]} link` });
-  }
+  for (const key of Object.keys(LABEL)) if (socials[key]) commands.push(cmd(key, `Get the Commander ${LABEL[key]} link`, `رابط كوماندر على ${LABEL[key]}`));
   if (socials.support) {
-    commands.push({ name: 'support', type: 1, description: 'Where to get help on the Commander server' });
+    commands.push(cmd('support', 'Where to get help on the Commander server', 'أين تجد المساعدة في سيرفر كوماندر'));
     commands.push({ name: 'مساعدة', type: 1, description: 'Where to get help (أين تجد المساعدة)' });
   }
 
-  let failed = false;
-  for (const cmd of commands) {
-    for (let attempt = 1; attempt <= 4; attempt++) {
-      const res = await fetch(`https://discord.com/api/v10/applications/${appId}/commands`, {
-        method: 'POST',
-        headers: { Authorization: `Bot ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(cmd),
-      });
-      if (res.ok) { console.log(`\x1b[32m✔\x1b[0m /${cmd.name}`); break; }
-      const text = await res.text();
-      if (res.status === 429 && attempt < 4) {
-        let wait = 2;
-        try { wait = Number(JSON.parse(text).retry_after) || 2; } catch {}
-        console.log(`  … Discord asked us to slow down, waiting ${Math.ceil(wait)}s`);
-        await sleep(Math.ceil(wait * 1000) + 300);
-        continue;
-      }
-      failed = true;
-      console.error(`\x1b[31m✘\x1b[0m /${cmd.name}: Discord said ${res.status}: ${text}`);
-      if (res.status === 401) console.error('  -> The bot token is wrong. Reset it on the Bot page and update .env.local.');
-      if (res.status === 404) console.error('  -> The Application ID is wrong. Copy it from General Information.');
-      break;
+  // one request replaces the whole list
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    const res = await fetch(`https://discord.com/api/v10/applications/${appId}/commands`, {
+      method: 'PUT',
+      headers: { Authorization: `Bot ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(commands),
+    });
+    if (res.ok) {
+      const list = await res.json();
+      for (const c of list) console.log(`\x1b[32m✔\x1b[0m /${c.name}`);
+      console.log(`\n${list.length} commands registered. In Discord press Ctrl+R; changes can take a minute to appear.`);
+      process.exit(0);
     }
-    await sleep(400); // be gentle with Discord's rate limit
+    const text = await res.text();
+    if (res.status === 429 && attempt < 4) {
+      let wait = 2;
+      try { wait = Number(JSON.parse(text).retry_after) || 2; } catch {}
+      console.log(`  … Discord asked us to slow down, waiting ${Math.ceil(wait)}s`);
+      await new Promise((r) => setTimeout(r, Math.ceil(wait * 1000) + 300));
+      continue;
+    }
+    console.error(`\x1b[31m✘\x1b[0m Discord said ${res.status}: ${text}`);
+    if (res.status === 401) console.error('  -> The bot token is wrong. Reset it on the Bot page and update .env.local.');
+    if (res.status === 404) console.error('  -> The Application ID is wrong. Copy it from General Information.');
+    process.exit(1);
   }
-  if (!failed) console.log('\nAll commands registered. In Discord press Ctrl+R; new ones can take a few minutes to appear.');
-  process.exit(failed ? 1 : 0);
 })();

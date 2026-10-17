@@ -119,5 +119,17 @@ export async function logMatch(supabase: SupabaseClient, input: LogMatchInput): 
   const afterTop3 = await getTopThreeUsernames(supabase, column);
   await notifyTopThreeChanges(supabase, isTeam ? "Team" : "FFA", beforeTop3, afterTop3);
 
-  return { error: null, matchId: (res.data as { id?: string } | null)?.id ?? null, deltas };
+  const matchId = (res.data as { id?: string } | null)?.id ?? null;
+  if (matchId && typeof window !== "undefined") {
+    void (async () => {
+      try {
+        const { data: s } = await supabase.auth.getSession();
+        await fetch("/api/discord/match-post", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${s.session?.access_token ?? ""}` }, body: JSON.stringify({ id: matchId }) });
+      } catch {
+        /* Discord post is a bonus — the match is already saved */
+      }
+    })();
+  }
+
+  return { error: null, matchId, deltas };
 }
